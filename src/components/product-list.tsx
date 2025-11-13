@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DeleteProductButton } from "@/components/delete-product-button";
+import { EditProductForm } from "@/components/edit-product-form";
 
 // Definimos el "tipo" de producto que esperamos recibir.
 
@@ -73,6 +74,7 @@ export function ProductList({ products }: ProductListProps) {
                 <TableCell className="text-right">
                   {/* --- 2. AÑADIR EL BOTÓN --- */}
                   <DeleteProductButton productId={product.id} />
+                  <EditProductForm product={product} />
                 </TableCell>
               </TableRow>
             ))}
