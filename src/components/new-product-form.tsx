@@ -21,9 +21,11 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
+import { useToast } from "@/components/ui/use-toast";
 
 export default function NewProductForm() {
   const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -63,11 +65,17 @@ export default function NewProductForm() {
       const result = await response.json();
 
       if (!response.ok) {
-        // Si la respuesta NO fue exitosa (ej: 400, 401, 409, 500)
-        // Muestra el mensaje de error que enviamos desde la API
+        toast({
+          title: "Error al crear",
+          description: result.error || "No se pudo crear el producto.",
+          variant: "destructive",
+        });
         setError(result.error || "Ocurrió un error desconocido.");
       } else {
-        // Si la respuesta SÍ fue exitosa (ej: 201)
+        toast({
+          title: "¡Éxito!",
+          description: "Producto creado exitosamente.",
+        });
         setSuccess(result.message || "¡Producto creado exitosamente!");
 
         // Limpiar el formulario tras el éxito
@@ -79,8 +87,11 @@ export default function NewProductForm() {
       }
       // --- FIN DE LA LÓGICA MEJORADA ---
     } catch (err) {
-      // Este error 'catch' solo se activa si hay un error de red real
-      // (ej: no hay internet, el servidor está caído)
+      toast({
+        title: "Error de red",
+        description: "No se pudo conectar a la API.",
+        variant: "destructive",
+      });
       console.error("Error de fetch:", err);
       setError("Error de red. No se pudo conectar a la API.");
     } finally {

@@ -1,11 +1,3 @@
-/**
- * Archivo: src/components/product-list.tsx
- *
- * Este componente es "tonto" (dumb component).
- * Solo recibe una lista de productos y la muestra en una tabla.
- * No necesita ser "async" ni "use client".
- */
-
 import {
   Table,
   TableBody,
@@ -16,9 +8,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { DeleteProductButton } from "@/components/delete-product-button";
 
 // Definimos el "tipo" de producto que esperamos recibir.
-// Esto nos da autocompletado y seguridad de tipos.
+
 // Debe coincidir con tu schema.prisma
 type Product = {
   id: string;
@@ -78,8 +71,8 @@ export function ProductList({ products }: ProductListProps) {
                 </TableCell>
                 <TableCell className="text-right">{product.quantity}</TableCell>
                 <TableCell className="text-right">
-                  {/* Aquí pondremos los botones de Editar y Eliminar */}
-                  <span className="text-sm text-gray-400">...</span>
+                  {/* --- 2. AÑADIR EL BOTÓN --- */}
+                  <DeleteProductButton productId={product.id} />
                 </TableCell>
               </TableRow>
             ))}

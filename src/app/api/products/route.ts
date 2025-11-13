@@ -1,6 +1,5 @@
 /**
- *
- * API para manejar la creación (POST) de nuevos productos.
+ * API para crear (POST) productos.
  */
 
 import { NextResponse } from "next/server";
@@ -30,7 +29,7 @@ export async function POST(request: Request) {
     if (!name || !price || !sku || quantity === undefined) {
       return NextResponse.json(
         { error: "Nombre, precio, SKU y cantidad son requeridos." },
-        { status: 400 } // 400 Bad Request
+        { status: 400 }
       );
     }
 
@@ -44,8 +43,23 @@ export async function POST(request: Request) {
       );
     }
 
-    // 4. Crear el producto en la BD (usando SQL crudo)
-    const newId = createId(); // <-- 2. Usamos createId() en lugar de crypto.randomUUID()
+    // 4. Verificar si el SKU ya existe (usando SQL)
+    const existingSku = await prisma.$queryRaw(
+      Prisma.sql`
+        SELECT id FROM Product WHERE sku = ${sku} AND authorId = ${userId}
+      `
+    );
+
+    // queryRaw devuelve un array, si su longitud es > 0, el SKU ya existe
+    if (Array.isArray(existingSku) && existingSku.length > 0) {
+      return NextResponse.json(
+        { error: "El SKU ya existe. Debe ser único." },
+        { status: 409 } // 409 Conflict
+      );
+    }
+
+    // 5. Crear el producto en la BD (usando SQL crudo)
+    const newId = createId(); // Generamos el CUID
 
     await prisma.$executeRaw(
       Prisma.sql`
@@ -65,20 +79,13 @@ export async function POST(request: Request) {
       `
     );
 
-    // 5. Devolver respuesta exitosa
+    // 6. Devolver respuesta exitosa
     return NextResponse.json(
       { message: "Producto creado exitosamente." },
       { status: 201 } // 201 Created
     );
   } catch (error: any) {
-    // Manejar errores comunes
-    if (error.code === "P2002" || error.message.includes("Duplicate entry")) {
-      return NextResponse.json(
-        { error: "El SKU ya existe. Debe ser único." },
-        { status: 409 } // 409 Conflict
-      );
-    }
-
+    // Manejar errores
     console.error(error);
     return NextResponse.json(
       { error: "Error interno del servidor." },

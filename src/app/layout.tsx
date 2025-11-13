@@ -1,14 +1,14 @@
 /**
  * Archivo: src/app/layout.tsx
  *
- * Este es el layout raíz de TODA la aplicación.
- * Es un "Server Component" por defecto.
+ * ACTUALIZADO: Añadimos el Toaster
  */
 
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import AuthProvider from "./auth-provider"; // <-- 1. Importamos nuestro proveedor
+import AuthProvider from "./auth-provider";
+import { Toaster } from "@/components/ui/toaster"; // <-- 1. IMPORTAR
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -25,8 +25,10 @@ export default function RootLayout({
   return (
     <html lang="es">
       <body className={inter.className}>
-        {/* 2. Envolvemos {children} con el AuthProvider */}
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider>
+          {children}
+          <Toaster /> {/* <-- 2. AÑADIR EL COMPONENTE */}
+        </AuthProvider>
       </body>
     </html>
   );
