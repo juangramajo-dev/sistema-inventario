@@ -1,8 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
 generator client {
   provider = "prisma-client-js"
@@ -14,30 +9,91 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// --- MODELO USER ---
 model User {
-id String @id @default(cuid())
-name String?
-email String @unique
-password String
-createdAt DateTime @default(now())
-updatedAt DateTime @updatedAt
+  id        String   @id @default(cuid())
+  name      String?
+  email     String   @unique
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-products Product[]
+  // Relaciones
+  products   Product[]
+  categories Category[] 
+  suppliers  Supplier[] 
 }
 
+// --- MODELO PRODUCT  ---
 model Product {
-  id String @id @default(cuid())
+  id          String    @id @default(cuid())
+  name        String
+  description String?   @db.Text
+  price       Float
+  sku         String    @unique
+  quantity    Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Clave foránea del Usuario
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+ 
+  // Hacemos que sean 'Opcionales' (?) para que los productos
+  // que ya creamos no den error.
+  
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  // 'onDelete: SetNull' significa: si se borra una categoría, 
+  // el producto NO se borra, solo se pone su 'categoryId' a NULL.
+
+  supplierId String?
+  supplier   Supplier? @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  // 'onDelete: SetNull' (misma lógica)
+  
+  // Índices
+  @@index([sku])
+  @@index([authorId])
+  @@index([categoryId]) // <-- NUEVO ÍNDICE
+  @@index([supplierId]) // <-- NUEVO ÍNDICE
+}
+
+// --- ¡NUEVO MODELO! ---
+model Category {
+  id   String @id @default(cuid())
   name String
-  description String? @db.Text
-  price Float
-  sku String @unique
-  quantity Int @default(0)
-  createdAt DateTime @default(now())
-updatedAt DateTime @updatedAt
-authorId String
 
-author User @relation(fields: [authorId], references: [id] , onDelete: Cascade)
+  // Relación con el Usuario (para que cada usuario tenga sus categorías)
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
 
-@@index([sku])
-@@index([authorId])
+  // Relación con Productos
+  products Product[]
+
+  // Índices
+  @@index([authorId])
+  // Índice único COMPUESTO: El 'name' debe ser único POR 'authorId'
+  // (Dos usuarios pueden tener una categoría "Electrónica",
+  // pero un usuario no puede tener dos "Electrónica")
+  @@unique([authorId, name])
+}
+
+// --- ¡NUEVO MODELO! ---
+model Supplier {
+  id          String  @id @default(cuid())
+  name        String
+  contactName String?
+  phone       String?
+  email       String?
+
+  // Relación con el Usuario
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  // Relación con Productos
+  products Product[]
+
+  // Índices
+  @@index([authorId])
 }

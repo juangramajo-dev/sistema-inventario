@@ -8,7 +8,8 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import AuthProvider from "./auth-provider";
-import { Toaster } from "@/components/ui/toaster"; // <-- 1. IMPORTAR
+import { Toaster } from "@/components/ui/toaster";
+import { Navbar } from "@/components/navbar";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -26,8 +27,9 @@ export default function RootLayout({
     <html lang="es">
       <body className={inter.className}>
         <AuthProvider>
+          <Navbar />
           {children}
-          <Toaster /> {/* <-- 2. AÑADIR EL COMPONENTE */}
+          <Toaster />
         </AuthProvider>
       </body>
     </html>

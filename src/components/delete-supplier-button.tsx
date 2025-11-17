@@ -1,8 +1,7 @@
 /**
- * Archivo: src/components/delete-product-button.tsx
+ * Archivo: src/components/delete-supplier-button.tsx
  *
- * Componente de cliente ("use client") que muestra el botón "Eliminar"
- * y el modal de confirmación (AlertDialog) de Shadcn.
+ * Componente de cliente para el modal de "Eliminar Proveedor".
  */
 
 "use client";
@@ -24,24 +23,22 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { Trash2 } from "lucide-react"; // Ícono de basura
 
-// Definimos las props que el botón necesita
-interface DeleteProductButtonProps {
-  productId: string;
+interface DeleteSupplierButtonProps {
+  supplierId: string;
 }
 
-export function DeleteProductButton({ productId }: DeleteProductButtonProps) {
+export function DeleteSupplierButton({
+  supplierId,
+}: DeleteSupplierButtonProps) {
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const router = useRouter(); // Para refrescar la página
+  const router = useRouter();
   const { toast } = useToast();
 
   const handleDelete = async () => {
     setLoading(true);
-    setError(null);
 
     try {
-      // 1. Llamar a nuestra API de DELETE
-      const response = await fetch(`/api/products/${productId}`, {
+      const response = await fetch(`/api/suppliers/${supplierId}`, {
         method: "DELETE",
       });
 
@@ -50,14 +47,14 @@ export function DeleteProductButton({ productId }: DeleteProductButtonProps) {
       if (!response.ok) {
         toast({
           title: "Error al eliminar",
-          description: result.error || "No se pudo eliminar el producto.",
+          description: result.error || "No se pudo eliminar el proveedor.",
           variant: "destructive",
         });
-        setError(result.error || "No se pudo eliminar el producto.");
+        setLoading(false);
       } else {
         toast({
           title: "¡Éxito!",
-          description: "Producto eliminado exitosamente.",
+          description: "Proveedor eliminado exitosamente.",
         });
         router.refresh();
       }
@@ -67,10 +64,7 @@ export function DeleteProductButton({ productId }: DeleteProductButtonProps) {
         description: "No se pudo conectar a la API.",
         variant: "destructive",
       });
-      setError("Error de red. No se pudo conectar a la API.");
-    } finally {
-      // Nota: No seteamos setLoading(false) porque el modal se cierra
-      // y el componente se "desmonta" al refrescar.
+      setLoading(false);
     }
   };
 
@@ -83,27 +77,24 @@ export function DeleteProductButton({ productId }: DeleteProductButtonProps) {
           className="h-8 w-8 p-0 text-red-500 hover:text-red-600"
         >
           <Trash2 className="h-4 w-4" />
-          <span className="sr-only">Eliminar</span>
+          <span className="sr-only">Eliminar Proveedor</span>
         </Button>
       </AlertDialogTrigger>
-      {/* Este es el contenido del modal (pop-up) */}
+
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>¿Estás absolutamente seguro?</AlertDialogTitle>
           <AlertDialogDescription>
-            Esta acción no se puede deshacer. El producto se eliminará
-            permanentemente de la base de datos.
-            {error && <p className="mt-2 text-sm text-red-500">{error}</p>}
+            Esta acción no se puede deshacer. Los productos asociados a este
+            proveedor perderán su asignación.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          {/* Botón de Cancelar */}
           <AlertDialogCancel disabled={loading}>Cancelar</AlertDialogCancel>
-          {/* Botón de Confirmar Eliminación */}
           <AlertDialogAction
             onClick={handleDelete}
             disabled={loading}
-            className="bg-red-600 hover:bg-red-700" // Estilo extra de peligro
+            className="bg-red-600 hover:bg-red-700"
           >
             {loading ? "Eliminando..." : "Sí, eliminar"}
           </AlertDialogAction>

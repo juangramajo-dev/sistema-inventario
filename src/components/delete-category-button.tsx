@@ -1,8 +1,6 @@
 /**
- * Archivo: src/components/delete-product-button.tsx
  *
- * Componente de cliente ("use client") que muestra el botón "Eliminar"
- * y el modal de confirmación (AlertDialog) de Shadcn.
+ * Componente de cliente para el modal de "Eliminar Categoría".
  */
 
 "use client";
@@ -24,24 +22,22 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { Trash2 } from "lucide-react"; // Ícono de basura
 
-// Definimos las props que el botón necesita
-interface DeleteProductButtonProps {
-  productId: string;
+interface DeleteCategoryButtonProps {
+  categoryId: string;
 }
 
-export function DeleteProductButton({ productId }: DeleteProductButtonProps) {
+export function DeleteCategoryButton({
+  categoryId,
+}: DeleteCategoryButtonProps) {
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const router = useRouter(); // Para refrescar la página
+  const router = useRouter();
   const { toast } = useToast();
 
   const handleDelete = async () => {
     setLoading(true);
-    setError(null);
 
     try {
-      // 1. Llamar a nuestra API de DELETE
-      const response = await fetch(`/api/products/${productId}`, {
+      const response = await fetch(`/api/categories/${categoryId}`, {
         method: "DELETE",
       });
 
@@ -50,14 +46,14 @@ export function DeleteProductButton({ productId }: DeleteProductButtonProps) {
       if (!response.ok) {
         toast({
           title: "Error al eliminar",
-          description: result.error || "No se pudo eliminar el producto.",
+          description: result.error || "No se pudo eliminar la categoría.",
           variant: "destructive",
         });
-        setError(result.error || "No se pudo eliminar el producto.");
+        setLoading(false);
       } else {
         toast({
           title: "¡Éxito!",
-          description: "Producto eliminado exitosamente.",
+          description: "Categoría eliminada exitosamente.",
         });
         router.refresh();
       }
@@ -67,10 +63,7 @@ export function DeleteProductButton({ productId }: DeleteProductButtonProps) {
         description: "No se pudo conectar a la API.",
         variant: "destructive",
       });
-      setError("Error de red. No se pudo conectar a la API.");
-    } finally {
-      // Nota: No seteamos setLoading(false) porque el modal se cierra
-      // y el componente se "desmonta" al refrescar.
+      setLoading(false);
     }
   };
 
@@ -86,24 +79,22 @@ export function DeleteProductButton({ productId }: DeleteProductButtonProps) {
           <span className="sr-only">Eliminar</span>
         </Button>
       </AlertDialogTrigger>
-      {/* Este es el contenido del modal (pop-up) */}
+
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>¿Estás absolutamente seguro?</AlertDialogTitle>
           <AlertDialogDescription>
-            Esta acción no se puede deshacer. El producto se eliminará
-            permanentemente de la base de datos.
-            {error && <p className="mt-2 text-sm text-red-500">{error}</p>}
+            Esta acción no se puede deshacer. Al eliminar la categoría, los
+            productos asociados no se borrarán, pero perderán su categorización
+            (quedarán como 'NULL').
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          {/* Botón de Cancelar */}
           <AlertDialogCancel disabled={loading}>Cancelar</AlertDialogCancel>
-          {/* Botón de Confirmar Eliminación */}
           <AlertDialogAction
             onClick={handleDelete}
             disabled={loading}
-            className="bg-red-600 hover:bg-red-700" // Estilo extra de peligro
+            className="bg-red-600 hover:bg-red-700"
           >
             {loading ? "Eliminando..." : "Sí, eliminar"}
           </AlertDialogAction>
