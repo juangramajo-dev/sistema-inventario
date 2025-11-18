@@ -1,26 +1,18 @@
 /**
  * Archivo: src/components/new-product-form.tsx
  *
- * ¡CORREGIDO!
- * - El estado inicial ahora es "NONE" en lugar de "".
- * - El <SelectItem> de "(Ninguna)" ahora usa value="NONE".
+ * ¡ACTUALIZADO! Ahora es un MODAL (Dialog) en lugar de una Card.
  */
 
 "use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
+import { Plus } from "lucide-react"; // Icono para el botón
 import {
   Select,
   SelectContent,
@@ -28,6 +20,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 type SelectItem = {
   id: string;
@@ -39,19 +40,19 @@ interface NewProductFormProps {
   suppliers: SelectItem[];
 }
 
-// 1. Estado inicial actualizado
 const initialState = {
   name: "",
   sku: "",
   price: "",
   quantity: "",
   description: "",
-  categoryId: "NONE", // <-- CORREGIDO
-  supplierId: "NONE", // <-- CORREGIDO
+  categoryId: "NONE",
+  supplierId: "NONE",
 };
 
 export function NewProductForm({ categories, suppliers }: NewProductFormProps) {
   const [loading, setLoading] = useState(false);
+  const [open, setOpen] = useState(false); // <-- Nuevo estado para controlar el modal
   const [formData, setFormData] = useState(initialState);
   const { toast } = useToast();
   const router = useRouter();
@@ -83,19 +84,24 @@ export function NewProductForm({ categories, suppliers }: NewProductFormProps) {
 
       if (!response.ok) {
         toast({
-          /* ... (toast de error) ... */
+          title: "Error al crear",
+          description: result.error || "No se pudo crear el producto.",
+          variant: "destructive",
         });
       } else {
         toast({
           title: "¡Éxito!",
           description: "Producto creado exitosamente.",
         });
-        setFormData(initialState); // Limpiar el formulario
+        setFormData(initialState);
+        setOpen(false); // <-- ¡CERRAMOS EL MODAL AL FINALIZAR!
         router.refresh();
       }
     } catch (err) {
       toast({
-        /* ... (toast de red) ... */
+        title: "Error de red",
+        description: "No se pudo conectar a la API.",
+        variant: "destructive",
       });
     } finally {
       setLoading(false);
@@ -103,18 +109,26 @@ export function NewProductForm({ categories, suppliers }: NewProductFormProps) {
   };
 
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle>Añadir Nuevo Producto</CardTitle>
-        <CardDescription>
-          Completa los datos para registrar un nuevo ítem en el inventario.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-6">
-          {/* ... (campos name, sku, price, quantity) ... */}
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        {/* Este es el botón que se verá en la página */}
+        <Button>
+          <Plus className="mr-2 h-4 w-4" /> Añadir Producto
+        </Button>
+      </DialogTrigger>
+
+      {/* El contenido del modal */}
+      <DialogContent className="sm:max-w-[600px]">
+        <DialogHeader>
+          <DialogTitle>Añadir Nuevo Producto</DialogTitle>
+          <DialogDescription>
+            Completa los datos para registrar un nuevo ítem.
+          </DialogDescription>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-6 py-4">
           <div className="col-span-1">
-            <Label htmlFor="name">Nombre del Producto</Label>
+            <Label htmlFor="name">Nombre</Label>
             <Input
               id="name"
               name="name"
@@ -124,7 +138,7 @@ export function NewProductForm({ categories, suppliers }: NewProductFormProps) {
             />
           </div>
           <div className="col-span-1">
-            <Label htmlFor="sku">SKU (Código Único)</Label>
+            <Label htmlFor="sku">SKU</Label>
             <Input
               id="sku"
               name="sku"
@@ -134,7 +148,7 @@ export function NewProductForm({ categories, suppliers }: NewProductFormProps) {
             />
           </div>
           <div className="col-span-1">
-            <Label htmlFor="price">Precio (Ej: 1200.50)</Label>
+            <Label htmlFor="price">Precio</Label>
             <Input
               id="price"
               name="price"
@@ -146,7 +160,7 @@ export function NewProductForm({ categories, suppliers }: NewProductFormProps) {
             />
           </div>
           <div className="col-span-1">
-            <Label htmlFor="quantity">Cantidad (Stock Inicial)</Label>
+            <Label htmlFor="quantity">Cantidad</Label>
             <Input
               id="quantity"
               name="quantity"
@@ -158,7 +172,6 @@ export function NewProductForm({ categories, suppliers }: NewProductFormProps) {
             />
           </div>
 
-          {/* --- Campos de Select CORREGIDOS --- */}
           <div className="col-span-1">
             <Label htmlFor="categoryId">Categoría</Label>
             <Select
@@ -166,10 +179,9 @@ export function NewProductForm({ categories, suppliers }: NewProductFormProps) {
               value={formData.categoryId}
             >
               <SelectTrigger id="categoryId">
-                <SelectValue placeholder="Seleccionar (Opcional)" />
+                <SelectValue placeholder="Seleccionar" />
               </SelectTrigger>
               <SelectContent>
-                {/* 2. value="NONE" */}
                 <SelectItem value="NONE">(Ninguna)</SelectItem>
                 {categories.map((cat) => (
                   <SelectItem key={cat.id} value={cat.id}>
@@ -186,10 +198,9 @@ export function NewProductForm({ categories, suppliers }: NewProductFormProps) {
               value={formData.supplierId}
             >
               <SelectTrigger id="supplierId">
-                <SelectValue placeholder="Seleccionar (Opcional)" />
+                <SelectValue placeholder="Seleccionar" />
               </SelectTrigger>
               <SelectContent>
-                {/* 3. value="NONE" */}
                 <SelectItem value="NONE">(Ninguno)</SelectItem>
                 {suppliers.map((sup) => (
                   <SelectItem key={sup.id} value={sup.id}>
@@ -201,7 +212,7 @@ export function NewProductForm({ categories, suppliers }: NewProductFormProps) {
           </div>
 
           <div className="col-span-2">
-            <Label htmlFor="description">Descripción (Opcional)</Label>
+            <Label htmlFor="description">Descripción</Label>
             <Input
               id="description"
               name="description"
@@ -210,13 +221,17 @@ export function NewProductForm({ categories, suppliers }: NewProductFormProps) {
             />
           </div>
 
-          <div className="col-span-2 text-right">
-            <Button type="submit" disabled={loading}>
-              {loading ? "Guardando..." : "Añadir Producto"}
+          <DialogFooter className="col-span-2">
+            <Button
+              type="submit"
+              disabled={loading}
+              className="w-full sm:w-auto"
+            >
+              {loading ? "Guardando..." : "Guardar Producto"}
             </Button>
-          </div>
+          </DialogFooter>
         </form>
-      </CardContent>
-    </Card>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -127,12 +127,6 @@ async function fetchDashboardData(userId: string) {
       totalSkus: statsResult[0].totalSkus || 0,
     };
 
-    // 7. --- Procesamiento (Pivot) para el Gráfico ---
-    //    Convertimos los datos de:
-    //    [{date: '11-18', type: 'IN', total: 10}, {date: '11-18', type: 'OUT', total: 5}]
-    //    A:
-    //    [{date: '18/11', ENTRADA: 10, SALIDA: 5}]
-
     const chartDataMap = new Map<
       string,
       { date: string; ENTRADA: number; SALIDA: number }
@@ -193,14 +187,9 @@ export default async function Home() {
   }
 
   // 1. Obtenemos TODOS los datos de nuestra función
-  const {
-    stats,
-    lowStockProducts,
-    allProducts,
-    categories,
-    suppliers,
-    chartData, // <-- Dato nuevo para el gráfico
-  } = await fetchDashboardData(session.user.id);
+  const { stats, lowStockProducts, chartData } = await fetchDashboardData(
+    session.user.id
+  );
 
   return (
     // 'flex flex-col gap-8' es nuestro contenedor principal
@@ -251,20 +240,6 @@ export default async function Home() {
         <div className="lg:col-span-6 space-y-8">
           <LowStockAlert products={lowStockProducts} />
         </div>
-        <div className="lg:col-span-12 space-y-8">
-          <NewProductForm categories={categories} suppliers={suppliers} />
-        </div>
-
-        {/* Columna Derecha (Sesión) */}
-      </div>
-
-      {/* Lista de Productos (Tabla Principal) */}
-      <div className="w-full">
-        <ProductList
-          products={allProducts}
-          categories={categories}
-          suppliers={suppliers}
-        />
       </div>
     </div>
   );

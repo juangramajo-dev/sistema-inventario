@@ -10,6 +10,7 @@ import {
   LayoutDashboard, // Icono para Dashboard
   Package, // Icono para Kardex
   Settings, // Icono para Gestión
+  Package2,
 } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { signOut } from "next-auth/react";
@@ -20,6 +21,11 @@ const routes = [
     href: "/",
     label: "Dashboard",
     icon: LayoutDashboard,
+  },
+  {
+    href: "/product",
+    label: "Productos",
+    icon: Package2,
   },
   {
     href: "/kardex",
