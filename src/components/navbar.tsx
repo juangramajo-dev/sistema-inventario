@@ -1,5 +1,4 @@
 /**
- * Archivo: src/components/navbar.tsx
  * * Nuestra barra de navegación principal.
  */
 
@@ -8,10 +7,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { Button } from "./ui/button";
+import { signOut } from "next-auth/react";
 
 const routes = [
   { href: "/", label: "Dashboard (Inventario)" },
   { href: "/management", label: "Gestión (Categorías/Proveedores)" },
+  { href: "kardex", label: "Movimientos de Inventario (Kardex)" },
 ];
 
 export function Navbar() {
@@ -42,8 +44,13 @@ export function Navbar() {
               ))}
             </div>
           </div>
-          {/* Aquí podríamos poner el botón de 'Cerrar Sesión'
-              moviéndolo desde session-display, pero por ahora lo dejamos simple */}
+          <Button
+            onClick={() => signOut()} // Llama a la función signOut de next-auth
+            variant="destructive"
+            className="w-50 sm:w-auto sm:ml-6 mt-4"
+          >
+            Cerrar Sesión
+          </Button>
         </div>
       </div>
     </nav>

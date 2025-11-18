@@ -9,6 +9,13 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum MovementType{
+  IN
+  OUT
+  }
+
+  
+
 // --- MODELO USER ---
 model User {
   id        String   @id @default(cuid())
@@ -22,6 +29,7 @@ model User {
   products   Product[]
   categories Category[] 
   suppliers  Supplier[] 
+  movements InventoryMovement[]
 }
 
 // --- MODELO PRODUCT  ---
@@ -38,28 +46,21 @@ model Product {
   // Clave foránea del Usuario
   authorId String
   author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
-
- 
-  // Hacemos que sean 'Opcionales' (?) para que los productos
-  // que ya creamos no den error.
-  
   categoryId String?
   category   Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  // 'onDelete: SetNull' significa: si se borra una categoría, 
-  // el producto NO se borra, solo se pone su 'categoryId' a NULL.
-
   supplierId String?
   supplier   Supplier? @relation(fields: [supplierId], references: [id], onDelete: SetNull)
-  // 'onDelete: SetNull' (misma lógica)
   
+  // Realciones
+ movements InventoryMovement[]
+
   // Índices
   @@index([sku])
   @@index([authorId])
-  @@index([categoryId]) // <-- NUEVO ÍNDICE
-  @@index([supplierId]) // <-- NUEVO ÍNDICE
+  @@index([categoryId]) 
+  @@index([supplierId]) 
 }
 
-// --- ¡NUEVO MODELO! ---
 model Category {
   id   String @id @default(cuid())
   name String
@@ -79,7 +80,7 @@ model Category {
   @@unique([authorId, name])
 }
 
-// --- ¡NUEVO MODELO! ---
+// --- MODELO SUPPLIER ---
 model Supplier {
   id          String  @id @default(cuid())
   name        String
@@ -97,3 +98,26 @@ model Supplier {
   // Índices
   @@index([authorId])
 }
+
+// ---  MODELO INVENTORY MOVEMENT ---
+model InventoryMovement {
+  id String @id @default(cuid())
+  type MovementType
+  quantity Int
+  notes String? @db.Text
+  createdAt DateTime @default(now())
+
+  // Relación con el Producto
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+
+  // Relación con el Usuario
+  authorId String
+  author   User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  //Indices
+  @@index([productId])
+  @@index([authorId])
+}
+

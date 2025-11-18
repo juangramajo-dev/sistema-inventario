@@ -23,7 +23,7 @@ import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 
-export default function NewProductForm() {
+export function NewProductForm() {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
   const [error, setError] = useState<string | null>(null);

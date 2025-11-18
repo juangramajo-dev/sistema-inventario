@@ -5,10 +5,6 @@ import { Prisma } from "@/generated/prisma";
 import { CategoryManager } from "@/components/category-manager";
 import { SupplierManager } from "@/components/supplier-manager";
 
-/**
- * Función de Data Fetching para Categorías
- * Se ejecuta en el SERVIDOR.
- */
 async function fetchCategories(userId: string) {
   try {
     const categories = await prisma.$queryRaw(
@@ -60,7 +56,7 @@ export default async function ManagementPage() {
   // const suppliers = await fetchSuppliers(session.user.id);
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-8 m-10">
       {/* Título de la Página */}
       <h1 className="text-3xl font-bold">Panel de Gestión</h1>
 

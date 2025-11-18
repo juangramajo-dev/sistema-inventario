@@ -44,14 +44,6 @@ export default function SessionDisplay() {
             <code>{JSON.stringify(session, null, 2)}</code>
           </pre>
         </div> */}
-
-        <Button
-          onClick={() => signOut()} // Llama a la función signOut de next-auth
-          variant="destructive"
-          className="w-full"
-        >
-          Cerrar Sesión
-        </Button>
       </div>
     );
   }
