@@ -214,6 +214,9 @@ export default async function Home() {
           Resumen de tu inventario.
         </p>
       </div>
+      <div className="lg:cols-12 ">
+        <SessionDisplay />
+      </div>
 
       <div className="w-full grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <KpiCard

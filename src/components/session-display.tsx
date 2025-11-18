@@ -18,7 +18,7 @@ export default function SessionDisplay() {
   // 'status' puede ser "loading", "authenticated", o "unauthenticated"
   if (status === "loading") {
     return (
-      <div className="text-center p-4 border rounded-lg shadow-md bg-white dark:bg-gray-800">
+      <div className="text-center p-4 border rounded-lg shadow-md bg-white">
         <p className="font-medium text-gray-700 dark:text-gray-300">
           Cargando sesión...
         </p>
@@ -29,7 +29,7 @@ export default function SessionDisplay() {
   // Si la sesión existe (authenticated)
   if (session) {
     return (
-      <div className="w-full max-w-lg p-6 border rounded-lg shadow-xl bg-white dark:bg-gray-800 space-y-4">
+      <div className="w-full max-w-lg p-6 border rounded-lg shadow-xl bg-white space-y-4">
         <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
           ¡Bienvenido, {session.user?.name || session.user?.email}!
         </h2>
