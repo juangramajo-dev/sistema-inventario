@@ -1,10 +1,25 @@
+/**
+ * Archivo: src/app/(app)/management/page.tsx
+ *
+ * ¡ACTUALIZADO! Ahora incluye la gestión de Motivos de Movimiento.
+ */
+
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/generated/prisma";
 import { CategoryManager } from "@/components/category-manager";
 import { SupplierManager } from "@/components/supplier-manager";
+import { MovementReasonManager } from "@/components/movement-reason-manager"; // <-- NUEVO
 
+// Tipo para el nuevo modelo
+type MovementReason = {
+  id: string;
+  name: string;
+  type: "IN" | "OUT";
+};
+
+// (Función fetchCategories sigue igual)
 async function fetchCategories(userId: string) {
   try {
     const categories = await prisma.$queryRaw(
@@ -21,11 +36,12 @@ async function fetchCategories(userId: string) {
   }
 }
 
+// (Función fetchSuppliers sigue igual)
 async function fetchSuppliers(userId: string) {
   try {
     const suppliers = await prisma.$queryRaw(
       Prisma.sql`
-        SELECT id, name, contactName, phone, email
+        SELECT id, name, contactName, phone, email 
         FROM Supplier
         WHERE authorId = ${userId}
         ORDER BY name ASC
@@ -38,28 +54,49 @@ async function fetchSuppliers(userId: string) {
   }
 }
 
+// --- NUEVA FUNCIÓN fetchMovementReasons ---
+async function fetchMovementReasons(userId: string) {
+  try {
+    const reasons = await prisma.$queryRaw(
+      Prisma.sql`
+        SELECT id, name, type FROM MovementReason
+        WHERE authorId = ${userId}
+        ORDER BY name ASC
+      `
+    );
+    return reasons as MovementReason[]; // Usamos el tipo definido
+  } catch (error) {
+    console.error("Error fetching movement reasons:", error);
+    return [];
+  }
+}
+
 // --- El Componente de Página ---
 export default async function ManagementPage() {
-  // 1. Obtener la sesión (necesitamos el userId para buscar)
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.id) {
-    // Esto no debería pasar gracias al middleware, pero es una buena práctica
     return <p>Error: No autorizado. Por favor, inicie sesión de nuevo.</p>;
   }
+  const userId = session.user.id;
 
-  // 2. Buscar los datos
-  const categories = await fetchCategories(session.user.id);
-  const suppliers = await fetchSuppliers(session.user.id);
+  // 1. Llamamos a TODAS las funciones de fetching
+  const [categories, suppliers, reasons] = await Promise.all([
+    fetchCategories(userId),
+    fetchSuppliers(userId),
+    fetchMovementReasons(userId), // <-- NUEVO FETCH
+  ]);
 
   return (
-    <div className="flex flex-col gap-8 m-10">
-      {/* Título de la Página */}
+    <div className="flex flex-col gap-8">
       <h1 className="text-3xl font-bold">Panel de Gestión</h1>
-
       {/* Gestor de Categorías */}
       <CategoryManager initialCategories={categories} />
+      {/* Gestor de Proveedores */}
       <SupplierManager initialSuppliers={suppliers} />
+      {/* Gestor de Motivos de Movimiento */}
+      <MovementReasonManager initialReasons={reasons} />{" "}
+      {/* <-- NUEVO GESTOR */}
     </div>
   );
 }

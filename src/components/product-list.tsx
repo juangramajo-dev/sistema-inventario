@@ -1,8 +1,7 @@
 /**
  * Archivo: src/components/product-list.tsx
  *
- * ACTUALIZADO: Acepta y pasa 'categories' y 'suppliers'
- * a EditProductForm.
+ * ¡ACTUALIZADO! Simplificado para mostrar productos (sin lógica de paginación)
  */
 
 import {
@@ -13,7 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { DeleteProductButton } from "./delete-product-button";
 import { EditProductForm } from "./edit-product-form";
 
@@ -32,8 +31,8 @@ type Product = {
   quantity: number;
   description?: string | null;
   createdAt: Date;
-  categoryId: string | null; // <-- ¡NUEVO!
-  supplierId: string | null; // <-- ¡NUEVO!
+  categoryId: string | null;
+  supplierId: string | null;
 };
 
 // 3. Actualizamos las Props del componente
@@ -51,12 +50,9 @@ export function ProductList({
   if (products.length === 0) {
     return (
       <Card className="w-full">
-        <CardHeader>
-          <CardTitle>Inventario</CardTitle>
-        </CardHeader>
-        <CardContent>
+        <CardContent className="py-8">
           <p className="text-center text-gray-500 dark:text-gray-400">
-            Aún no has añadido ningún producto.
+            No se encontraron productos que coincidan con la búsqueda.
           </p>
         </CardContent>
       </Card>
@@ -64,11 +60,8 @@ export function ProductList({
   }
 
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle>Mi Inventario ({products.length})</CardTitle>
-      </CardHeader>
-      <CardContent>
+    <Card className="w-full mt-4">
+      <CardContent className="p-0">
         <Table>
           <TableHeader>
             <TableRow>
@@ -88,10 +81,8 @@ export function ProductList({
                   ${product.price.toFixed(2)}
                 </TableCell>
                 <TableCell className="text-right">{product.quantity}</TableCell>
-
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-2">
-                    {/* 4. Pasamos las listas al formulario de edición */}
                     <EditProductForm
                       product={product}
                       categories={categories}

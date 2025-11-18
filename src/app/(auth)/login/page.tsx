@@ -1,10 +1,3 @@
-/**
- * Archivo: src/app/login/page.tsx
- *
- * Página de Login de Usuario.
- * Es un "Client Component" (usa "use client") porque es interactiva.
- */
-
 "use client"; // Directiva de Next.js para componentes de cliente
 
 import { useState } from "react";
@@ -20,8 +13,11 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useToast } from "@/components/ui/use-toast";
 
 export default function LoginPage() {
+  const { toast } = useToast();
+
   // Estados para manejar los inputs del formulario
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -45,10 +41,6 @@ export default function LoginPage() {
         email: email,
         password: password,
 
-        // IMPORTANTE: redirect: false
-        // Le decimos a next-auth que NO redirija automáticamente.
-        // Nosotros manejaremos la redirección manualmente.
-        // Esto nos permite capturar si hay un error.
         redirect: false,
       });
 
@@ -58,7 +50,12 @@ export default function LoginPage() {
       if (result?.error) {
         // Si hay un error (ej. "Contraseña incorrecta"), lo mostramos.
         // 'result.error' contendrá el mensaje que lanzamos en la función 'authorize'
-        setError(result.error);
+        toast({
+          title: "Error",
+          description: "No se pudo iniciar sesión.",
+          variant: "destructive",
+        });
+        setError("Error al iniciar sesión.");
       } else if (result?.ok) {
         // ¡Éxito!
         // El inicio de sesión fue correcto.
@@ -68,12 +65,18 @@ export default function LoginPage() {
         // setSuccess("¡Éxito! Redirigiendo...");
 
         // Redirigimos al usuario a la página de inicio (dashboard)
+
         router.push("/"); // Puedes cambiar esto a "/dashboard" en el futuro
       }
     } catch (err) {
       console.error("Error al iniciar sesión:", err);
       setError("Ocurrió un error inesperado. Inténtalo de nuevo.");
       setLoading(false);
+      toast({
+        title: "Error de red",
+        description: "No se pudo conectar a la API.",
+        variant: "destructive",
+      });
     }
   };
 

@@ -116,8 +116,8 @@ export function CategoryManager({ initialCategories }: CategoryManagerProps) {
                       {category.name}
                     </TableCell>
                     <TableCell className="text-right">
-                      <EditCategoryForm category={category} />
                       <DeleteCategoryButton categoryId={category.id} />
+                      <EditCategoryForm category={category} />
                     </TableCell>
                   </TableRow>
                 ))

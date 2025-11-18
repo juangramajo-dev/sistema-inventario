@@ -6,9 +6,7 @@
  */
 
 import { SidebarNav } from "@/components/sidebar-nav";
-import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Menu } from "lucide-react";
+import { Header } from "@/components/header";
 
 // Este layout recibe {children} (que serán tus páginas:
 // Dashboard, Kardex, Management)
@@ -32,26 +30,10 @@ export default function AppLayout({
 
       {/* --- CONTENIDO PRINCIPAL (Incluye Header Móvil) --- */}
       <div className="flex flex-col">
-        {/* --- HEADER (Móvil) --- */}
-        <header className="flex h-14 items-center gap-4 border-b bg-muted/40 px-4 lg:h-[60px] lg:px-6 md:hidden">
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button variant="outline" size="icon" className="shrink-0">
-                <Menu className="h-5 w-5" />
-                <span className="sr-only">Abrir menú</span>
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left" className="flex flex-col p-0">
-              <div className="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6">
-                <span className="text-lg font-bold">INV-SYS</span>
-              </div>
-              <SidebarNav />
-            </SheetContent>
-          </Sheet>
-        </header>
+        <Header />
 
         {/* --- PÁGINA ACTUAL ({children}) --- */}
-        <main className="flex-grow p-4 md:p-8">{children}</main>
+        <main className=" p-4 md:p-8">{children}</main>
       </div>
     </div>
   );

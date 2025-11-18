@@ -13,8 +13,6 @@ import {
   Package2,
 } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
-import { signOut } from "next-auth/react";
-import { Button } from "./ui/button";
 // 2. Definimos las rutas de nuestra aplicación
 const routes = [
   {
@@ -59,15 +57,6 @@ export function SidebarNav() {
           {route.label}
         </Link>
       ))}
-
-      {/* 2. Botón de Login (si no está autenticado) */}
-      <Button
-        onClick={() => signOut()} // Llama a la función signOut de next-auth
-        variant="destructive"
-        className="w-50 sm:w-auto sm:ml-6"
-      >
-        Cerrar Sesión
-      </Button>
     </nav>
   );
 }

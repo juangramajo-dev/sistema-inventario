@@ -1,13 +1,3 @@
-/**
- * Archivo: src/app/page.tsx
- *
- * ¡ACTUALIZACIÓN FINAL! (Fase 5.5)
- * - Añade fetching de datos para el gráfico (KPIs y Movimientos).
- * - Procesa (pivota) los datos para el gráfico.
- * - Renderiza el componente MovementsChart y los KPIs.
- * - Carga categorías/proveedores y los pasa a los formularios.
- */
-
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
 import { prisma } from "@/lib/prisma";
@@ -16,8 +6,7 @@ import { Prisma } from "@/generated/prisma";
 // Componentes
 import { KpiCard } from "@/components/kpi-card";
 import { LowStockAlert } from "@/components/low-stock-alert";
-import { NewProductForm } from "@/components/new-product-form";
-import { ProductList } from "@/components/product-list";
+
 import SessionDisplay from "@/components/session-display";
 import { MovementsChart } from "@/components/movements-chart"; // Importamos el gráfico
 

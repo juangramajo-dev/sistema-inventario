@@ -1,6 +1,7 @@
 /**
+ * Archivo: src/components/new-movement-form.tsx
  *
- * Componente de cliente para el formulario de "Registrar Movimiento".
+ * ¡ACTUALIZADO! Incluye la selección de Motivos de Movimiento.
  */
 
 "use client";
@@ -12,7 +13,6 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { Label } from "@/components/ui/label";
-// ¡Importamos los nuevos componentes Select de Shadcn!
 import {
   Select,
   SelectContent,
@@ -21,27 +21,32 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-// Definimos el tipo 'Product' (simple)
-type Product = {
-  id: string;
-  name: string;
-};
+// Tipos
+type Product = { id: string; name: string };
+type MovementType = "IN" | "OUT";
+type MovementReason = { id: string; name: string; type: MovementType };
 
-// Props: 'products' vendrá del Server Component
+// Props
 interface NewMovementFormProps {
   products: Product[];
+  reasons: MovementReason[]; // <-- MOTIVOS
 }
 
-export function NewMovementForm({ products }: NewMovementFormProps) {
+export function NewMovementForm({ products, reasons }: NewMovementFormProps) {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
 
   // Estados para el formulario
   const [productId, setProductId] = useState<string | undefined>(undefined);
-  const [type, setType] = useState<"IN" | "OUT" | undefined>(undefined);
+  const [type, setType] = useState<MovementType | undefined>(undefined);
+  // Usamos "NONE" para el valor inicial/nulo del Select
+  const [reasonId, setReasonId] = useState<string | undefined>("NONE");
   const [quantity, setQuantity] = useState("");
   const [notes, setNotes] = useState("");
+
+  // Filtramos los motivos según el tipo de movimiento seleccionado
+  const filteredReasons = reasons.filter((r) => r.type === type);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -50,7 +55,7 @@ export function NewMovementForm({ products }: NewMovementFormProps) {
     // Validación de cliente
     if (!productId || !type || !quantity) {
       toast({
-        title: "Error",
+        title: "Error de Formulario",
         description: "Producto, Tipo y Cantidad son requeridos.",
         variant: "destructive",
       });
@@ -66,6 +71,8 @@ export function NewMovementForm({ products }: NewMovementFormProps) {
           productId,
           type,
           quantity: parseInt(quantity, 10),
+          // Enviamos "NONE" si no se selecciona nada (el backend lo convierte a null)
+          reasonId: reasonId,
           notes,
         }),
       });
@@ -74,7 +81,7 @@ export function NewMovementForm({ products }: NewMovementFormProps) {
 
       if (!response.ok) {
         toast({
-          title: "Error",
+          title: "Error al registrar",
           description: result.error || "No se pudo registrar el movimiento.",
           variant: "destructive",
         });
@@ -86,9 +93,10 @@ export function NewMovementForm({ products }: NewMovementFormProps) {
         // Limpiar el formulario
         setProductId(undefined);
         setType(undefined);
+        setReasonId("NONE"); // Resetear a NONE
         setQuantity("");
         setNotes("");
-        // Refrescar la página (¡actualiza la lista de Kardex Y el stock en la otra página!)
+        // Refrescar la página (actualiza el Kardex y el Dashboard)
         router.refresh();
       }
     } catch (err) {
@@ -102,14 +110,21 @@ export function NewMovementForm({ products }: NewMovementFormProps) {
     }
   };
 
+  // Cuando el tipo de movimiento cambia, reiniciamos el motivo.
+  const handleTypeChange = (newType: string) => {
+    setType(newType as MovementType);
+    setReasonId("NONE"); // Resetear el motivo a "NONE"
+  };
+
   return (
     <Card className="w-full">
       <CardHeader>
         <CardTitle>Registrar Movimiento de Inventario</CardTitle>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-6">
-          <div className="col-span-2">
+        <form onSubmit={handleSubmit} className="grid grid-cols-3 gap-6">
+          {/* Fila 1: Producto, Tipo, Cantidad */}
+          <div className="col-span-3 sm:col-span-1">
             <Label>Producto</Label>
             <Select onValueChange={setProductId} value={productId}>
               <SelectTrigger>
@@ -131,12 +146,9 @@ export function NewMovementForm({ products }: NewMovementFormProps) {
             </Select>
           </div>
 
-          <div className="col-span-1">
+          <div className="col-span-3 sm:col-span-1">
             <Label>Tipo de Movimiento</Label>
-            <Select
-              onValueChange={(v) => setType(v as "IN" | "OUT")}
-              value={type}
-            >
+            <Select onValueChange={handleTypeChange} value={type}>
               <SelectTrigger>
                 <SelectValue placeholder="Selecciona un tipo..." />
               </SelectTrigger>
@@ -147,7 +159,7 @@ export function NewMovementForm({ products }: NewMovementFormProps) {
             </Select>
           </div>
 
-          <div className="col-span-1">
+          <div className="col-span-3 sm:col-span-1">
             <Label htmlFor="quantity">Cantidad</Label>
             <Input
               id="quantity"
@@ -161,8 +173,39 @@ export function NewMovementForm({ products }: NewMovementFormProps) {
             />
           </div>
 
-          <div className="col-span-2">
-            <Label htmlFor="notes">Notas (Razón del movimiento)</Label>
+          {/* Fila 2: Motivo y Notas */}
+          <div className="col-span-3 sm:col-span-1">
+            <Label>Motivo</Label>
+            <Select
+              onValueChange={setReasonId}
+              value={reasonId}
+              // Deshabilitado si no se selecciona el tipo o no hay motivos filtrados
+              disabled={!type || filteredReasons.length === 0}
+            >
+              <SelectTrigger>
+                <SelectValue
+                  placeholder={
+                    type
+                      ? `Selecciona un motivo de ${
+                          type === "IN" ? "Entrada" : "Salida"
+                        }`
+                      : "Selecciona el tipo primero..."
+                  }
+                />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="NONE">(Sin Motivo Específico)</SelectItem>
+                {filteredReasons.map((reason) => (
+                  <SelectItem key={reason.id} value={reason.id}>
+                    {reason.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="col-span-3 sm:col-span-2">
+            <Label htmlFor="notes">Notas (Opcional)</Label>
             <Input
               id="notes"
               placeholder="Ej: Venta Factura #123, Ajuste por rotura..."
@@ -171,8 +214,12 @@ export function NewMovementForm({ products }: NewMovementFormProps) {
             />
           </div>
 
-          <div className="col-span-2 text-right">
-            <Button type="submit" disabled={loading}>
+          <div className="col-span-3 text-right">
+            <Button
+              type="submit"
+              disabled={loading}
+              className="w-full sm:w-auto"
+            >
               {loading ? "Registrando..." : "Registrar Movimiento"}
             </Button>
           </div>

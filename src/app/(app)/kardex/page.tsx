@@ -1,6 +1,7 @@
 /**
+ * Archivo: src/app/(app)/kardex/page.tsx
  *
- * Página para registrar y ver movimientos (Kardex).
+ * ¡ACTUALIZADO! Ahora incluye Motivos de Movimiento.
  */
 
 import { getServerSession } from "next-auth";
@@ -8,7 +9,6 @@ import { authOptions } from "@/lib/authOptions";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/generated/prisma";
 import { NewMovementForm } from "@/components/new-movement-form";
-// Usaremos la tabla de Shadcn que ya instalamos
 import {
   Table,
   TableBody,
@@ -19,12 +19,19 @@ import {
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
+// Tipo para el nuevo modelo
+type MovementReason = {
+  id: string;
+  name: string;
+  type: "IN" | "OUT";
+};
+
 /**
  * Función de Data Fetching (Server-Side)
  */
 async function fetchPageData(userId: string) {
   try {
-    // 1. Buscamos los productos (solo ID y Nombre para el dropdown)
+    // 1. Buscamos los productos (ID y Nombre para el dropdown)
     const productsPromise = prisma.$queryRaw(
       Prisma.sql`
         SELECT id, name FROM Product
@@ -33,31 +40,47 @@ async function fetchPageData(userId: string) {
       `
     );
 
-    // 2. Buscamos los 50 movimientos más recientes (el Kardex)
-    //    ¡Usamos un JOIN para obtener el nombre del producto!
+    // 2. Buscamos los Motivos (ID y Nombre para el dropdown)
+    const reasonsPromise = prisma.$queryRaw(
+      Prisma.sql`
+        SELECT id, name, type FROM MovementReason
+        WHERE authorId = ${userId}
+        ORDER BY name ASC
+      `
+    );
+
+    // 3. Buscamos los 50 movimientos más recientes (Kardex)
+    //    ¡Usamos un LEFT JOIN para obtener el nombre del motivo (si existe)!
     const movementsPromise = prisma.$queryRaw(
       Prisma.sql`
         SELECT 
           m.id, m.type, m.quantity, m.notes, m.createdAt,
-          p.name as productName 
+          p.name as productName,
+          r.name as reasonName -- <-- NOMBRE DEL MOTIVO
         FROM InventoryMovement m
         JOIN Product p ON m.productId = p.id
+        LEFT JOIN MovementReason r ON m.reasonId = r.id -- <-- JOIN con el motivo
         WHERE m.authorId = ${userId}
         ORDER BY m.createdAt DESC
         LIMIT 50
       `
     );
 
-    // 3. Ejecutamos ambas consultas en paralelo
-    const [products, movements] = await Promise.all([
+    // 4. Ejecutamos todas las consultas en paralelo
+    const [products, reasons, movements] = await Promise.all([
       productsPromise,
+      reasonsPromise,
       movementsPromise,
     ]);
 
-    return { products: products as any[], movements: movements as any[] };
+    return {
+      products: products as any[],
+      reasons: reasons as MovementReason[], // <-- Lo devolvemos
+      movements: movements as any[],
+    };
   } catch (error) {
     console.error("Error fetching kardex data:", error);
-    return { products: [], movements: [] };
+    return { products: [], reasons: [], movements: [] };
   }
 }
 
@@ -65,17 +88,19 @@ async function fetchPageData(userId: string) {
 export default async function KardexPage() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return <p>Error: No autorizado.</p>;
+    return <p>No autorizado.</p>;
   }
 
   // 1. Buscamos los datos
-  const { products, movements } = await fetchPageData(session.user.id);
+  const { products, reasons, movements } = await fetchPageData(session.user.id);
 
   return (
-    <div className="flex flex-col gap-8 m-10">
+    <div className="flex flex-col gap-8">
       <h1 className="text-3xl font-bold">Registro de Movimientos (Kardex)</h1>
 
-      <NewMovementForm products={products} />
+      {/* Formulario de Nuevo Movimiento */}
+      {/* Pasamos la lista de motivos al formulario */}
+      <NewMovementForm products={products} reasons={reasons} />
 
       {/* Lista de Últimos Movimientos */}
       <Card className="w-full">
@@ -91,6 +116,7 @@ export default async function KardexPage() {
                   <TableHead>Producto</TableHead>
                   <TableHead>Tipo</TableHead>
                   <TableHead>Cantidad</TableHead>
+                  <TableHead>Motivo</TableHead> {/* <-- NUEVO */}
                   <TableHead>Notas</TableHead>
                 </TableRow>
               </TableHeader>
@@ -98,7 +124,7 @@ export default async function KardexPage() {
                 {movements.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={5}
+                      colSpan={6}
                       className="text-center text-gray-500"
                     >
                       No hay movimientos registrados.
@@ -128,6 +154,8 @@ export default async function KardexPage() {
                         {move.type === "IN" ? "+" : "-"}
                         {move.quantity}
                       </TableCell>
+                      <TableCell>{move.reasonName || "Sin Motivo"}</TableCell>{" "}
+                      {/* <-- NUEVO CAMPO */}
                       <TableCell>{move.notes || "N/A"}</TableCell>
                     </TableRow>
                   ))

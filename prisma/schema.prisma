@@ -1,3 +1,10 @@
+/**
+ * Archivo: schema.prisma
+ *
+ * ¡VERSIÓN FINAL DE LA FASE 4!
+ * Incluye todos los modelos y relaciones:
+ * User, Product, Category, Supplier, MovementReason, InventoryMovement.
+ */
 
 generator client {
   provider = "prisma-client-js"
@@ -9,12 +16,13 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum MovementType{
-  IN
-  OUT
-  }
+// --- ENUM ---
+// Define los únicos dos tipos de movimientos permitidos
+enum MovementType {
+  IN  // Entrada de stock (compras, devoluciones de clientes)
+  OUT // Salida de stock (ventas, ajustes por rotura)
+}
 
-  
 
 // --- MODELO USER ---
 model User {
@@ -25,62 +33,52 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Relaciones
-  products   Product[]
-  categories Category[] 
-  suppliers  Supplier[] 
-  movements InventoryMovement[]
+  products         Product[]
+  categories       Category[]
+  suppliers        Supplier[]
+  movements        InventoryMovement[]
+  movementReasons  MovementReason[] // <-- RELACIÓN NUEVA
 }
 
-// --- MODELO PRODUCT  ---
+// --- MODELO PRODUCT ---
 model Product {
   id          String    @id @default(cuid())
   name        String
   description String?   @db.Text
   price       Float
   sku         String    @unique
-  quantity    Int       @default(0)
+  quantity    Int       @default(0) 
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  // Clave foránea del Usuario
-  authorId String
-  author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorId   String
+  author     User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
   categoryId String?
   category   Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   supplierId String?
   supplier   Supplier? @relation(fields: [supplierId], references: [id], onDelete: SetNull)
   
-  // Realciones
- movements InventoryMovement[]
+  movements InventoryMovement[] 
 
-  // Índices
   @@index([sku])
   @@index([authorId])
-  @@index([categoryId]) 
-  @@index([supplierId]) 
+  @@index([categoryId])
+  @@index([supplierId])
 }
 
+// --- MODELOS DE SOPORTE ---
 model Category {
   id   String @id @default(cuid())
   name String
 
-  // Relación con el Usuario (para que cada usuario tenga sus categorías)
   authorId String
   author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
-
-  // Relación con Productos
   products Product[]
 
-  // Índices
   @@index([authorId])
-  // Índice único COMPUESTO: El 'name' debe ser único POR 'authorId'
-  // (Dos usuarios pueden tener una categoría "Electrónica",
-  // pero un usuario no puede tener dos "Electrónica")
   @@unique([authorId, name])
 }
 
-// --- MODELO SUPPLIER ---
 model Supplier {
   id          String  @id @default(cuid())
   name        String
@@ -88,36 +86,48 @@ model Supplier {
   phone       String?
   email       String?
 
-  // Relación con el Usuario
   authorId String
   author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
-
-  // Relación con Productos
   products Product[]
 
-  // Índices
   @@index([authorId])
 }
 
-// ---  MODELO INVENTORY MOVEMENT ---
-model InventoryMovement {
-  id String @id @default(cuid())
-  type MovementType
-  quantity Int
-  notes String? @db.Text
-  createdAt DateTime @default(now())
 
-  // Relación con el Producto
+// --- ¡MODELO NUEVO! ---
+model MovementReason {
+  id        String       @id @default(cuid())
+  name      String       // Ej: "Venta", "Compra", "Merma"
+  type      MovementType // Indica si es para entradas o salidas
+  authorId  String
+  author    User         @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  
+  movements InventoryMovement[] 
+
+  @@index([authorId])
+  @@unique([authorId, name])
+}
+
+
+// --- MODELO InventoryMovement (ACTUALIZADO) ---
+model InventoryMovement {
+  id        String       @id @default(cuid())
+  type      MovementType
+  quantity  Int
+  notes     String?      @db.Text
+  createdAt DateTime     @default(now())
+
   productId String
   product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  
+  authorId  String
+  author    User    @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  
+  reasonId  String? // La clave foránea al motivo (Opcional)
+  reason    MovementReason? @relation(fields: [reasonId], references: [id], onDelete: SetNull)
 
-
-  // Relación con el Usuario
-  authorId String
-  author   User @relation(fields: [authorId], references: [id], onDelete: Cascade)
-
-  //Indices
+  // Índices
   @@index([productId])
   @@index([authorId])
+  @@index([reasonId]) 
 }
-
