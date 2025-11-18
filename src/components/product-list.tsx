@@ -1,35 +1,53 @@
+/**
+ * Archivo: src/components/product-list.tsx
+ *
+ * ACTUALIZADO: Acepta y pasa 'categories' y 'suppliers'
+ * a EditProductForm.
+ */
+
 import {
   Table,
   TableBody,
-  TableCaption,
   TableCell,
   TableHead,
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { DeleteProductButton } from "@/components/delete-product-button";
-import { EditProductForm } from "@/components/edit-product-form";
+import { DeleteProductButton } from "./delete-product-button";
+import { EditProductForm } from "./edit-product-form";
 
-// Definimos el "tipo" de producto que esperamos recibir.
+// 1. Definimos los tipos para las props
+type SelectItem = {
+  id: string;
+  name: string;
+};
 
-// Debe coincidir con tu schema.prisma
+// 2. Actualizamos el tipo Product
 type Product = {
   id: string;
   name: string;
   sku: string;
   price: number;
   quantity: number;
+  description?: string | null;
   createdAt: Date;
+  categoryId: string | null; // <-- ¡NUEVO!
+  supplierId: string | null; // <-- ¡NUEVO!
 };
 
-// Definimos las props que el componente aceptará
+// 3. Actualizamos las Props del componente
 interface ProductListProps {
   products: Product[];
+  categories: SelectItem[];
+  suppliers: SelectItem[];
 }
 
-export function ProductList({ products }: ProductListProps) {
-  // Si no hay productos, mostramos un mensaje amigable
+export function ProductList({
+  products,
+  categories,
+  suppliers,
+}: ProductListProps) {
   if (products.length === 0) {
     return (
       <Card className="w-full">
@@ -45,7 +63,6 @@ export function ProductList({ products }: ProductListProps) {
     );
   }
 
-  // Si hay productos, los mostramos en la tabla
   return (
     <Card className="w-full">
       <CardHeader>
@@ -71,10 +88,17 @@ export function ProductList({ products }: ProductListProps) {
                   ${product.price.toFixed(2)}
                 </TableCell>
                 <TableCell className="text-right">{product.quantity}</TableCell>
+
                 <TableCell className="text-right">
-                  {/* --- 2. AÑADIR EL BOTÓN --- */}
-                  <DeleteProductButton productId={product.id} />
-                  <EditProductForm product={product} />
+                  <div className="flex justify-end gap-2">
+                    {/* 4. Pasamos las listas al formulario de edición */}
+                    <EditProductForm
+                      product={product}
+                      categories={categories}
+                      suppliers={suppliers}
+                    />
+                    <DeleteProductButton productId={product.id} />
+                  </div>
                 </TableCell>
               </TableRow>
             ))}

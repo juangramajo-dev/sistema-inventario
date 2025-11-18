@@ -1,22 +1,21 @@
 /**
  * Archivo: src/app/api/products/[id]/route.ts
  *
- * ¡ACTUALIZADO! Añadimos la función PUT para actualizar.
+ * ¡CORREGIDO!
+ * - La función PUT ahora convierte "NONE" a 'null'.
  */
 
-// ... (todos tus imports de 'NextResponse', 'prisma', 'authOptions', etc. siguen igual)
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
 import { Prisma } from "@/generated/prisma";
 
-// --- TU FUNCIÓN 'DELETE' (déjala como está) ---
+// --- FUNCIÓN 'DELETE' (Sin cambios) ---
 export async function DELETE(
   request: Request,
   context: { params: { id: string } }
 ) {
-  // ... (tu código de DELETE que ya funciona)
   try {
     const url = new URL(request.url);
     const productId = url.pathname.split("/").pop();
@@ -58,13 +57,13 @@ export async function DELETE(
   }
 }
 
-// --- ¡NUEVA FUNCIÓN 'PUT' (AÑADIR ESTO) ---
+// --- ¡FUNCIÓN 'PUT' (ACTUALIZADA)! ---
 export async function PUT(
   request: Request,
   context: { params: { id: string } }
 ) {
   try {
-    // 1. Obtener el ID del producto de la URL
+    // 1. Obtener ID y Sesión
     const url = new URL(request.url);
     const productId = url.pathname.split("/").pop();
     if (!productId) {
@@ -73,19 +72,18 @@ export async function PUT(
         { status: 400 }
       );
     }
-
-    // 2. Proteger la ruta y obtener el ID del usuario
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
       return NextResponse.json({ error: "No autorizado." }, { status: 401 });
     }
     const userId = session.user.id;
 
-    // 3. Obtener los nuevos datos del body
+    // 2. Obtener los nuevos datos del body
     const body = await request.json();
-    const { name, description, price, sku, quantity } = body;
+    const { name, description, price, sku, quantity, categoryId, supplierId } =
+      body;
 
-    // 4. Validar los datos
+    // 3. Validar datos principales
     if (!name || !price || !sku || quantity === undefined) {
       return NextResponse.json(
         { error: "Nombre, precio, SKU y cantidad son requeridos." },
@@ -101,25 +99,28 @@ export async function PUT(
       );
     }
 
-    // 5. [VALIDACIÓN DE SKU]
-    // Verificar si el nuevo SKU ya existe EN OTRO producto
+    // 4. Validar SKU
     const existingSku = await prisma.$queryRaw(
       Prisma.sql`
         SELECT id FROM Product 
         WHERE sku = ${sku} 
           AND authorId = ${userId} 
-          AND id != ${productId} -- ¡Que no sea este mismo producto!
+          AND id != ${productId}
       `
     );
-
     if (Array.isArray(existingSku) && existingSku.length > 0) {
       return NextResponse.json(
         { error: "Ese SKU ya está en uso por otro producto." },
-        { status: 409 } // 409 Conflict
+        { status: 409 }
       );
     }
 
-    // 6. Ejecutar la sentencia UPDATE con SQL crudo
+    // --- ¡CORRECCIÓN IMPORTANTE! ---
+    // Convertimos "NONE" (del select) a null (para la BD)
+    const finalCategoryId = categoryId === "NONE" ? null : categoryId;
+    const finalSupplierId = supplierId === "NONE" ? null : supplierId;
+
+    // 5. Ejecutar el UPDATE
     const result = await prisma.$executeRaw(
       Prisma.sql`
         UPDATE Product 
@@ -129,13 +130,14 @@ export async function PUT(
           price = ${priceFloat}, 
           sku = ${sku}, 
           quantity = ${quantityInt}, 
-          updatedAt = ${new Date()}
+          updatedAt = ${new Date()},
+          categoryId = ${finalCategoryId}, -- <-- CORREGIDO
+          supplierId = ${finalSupplierId}  -- <-- CORREGIDO
         WHERE 
           id = ${productId} AND authorId = ${userId}
       `
     );
 
-    // 7. Verificar si algo se actualizó
     if (result === 0) {
       return NextResponse.json(
         { error: "Producto no encontrado o no tienes permiso para editarlo." },
@@ -143,7 +145,6 @@ export async function PUT(
       );
     }
 
-    // 8. Devolver éxito
     return NextResponse.json(
       { message: "Producto actualizado exitosamente." },
       { status: 200 }

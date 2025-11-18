@@ -1,8 +1,11 @@
 /**
  * Archivo: src/app/page.tsx
  *
- * ¡ACTUALIZADO PARA FASE 5!
- * Ahora calcula KPIs y alertas de bajo stock.
+ * ¡ACTUALIZACIÓN FINAL! (Fase 5.5)
+ * - Añade fetching de datos para el gráfico (KPIs y Movimientos).
+ * - Procesa (pivota) los datos para el gráfico.
+ * - Renderiza el componente MovementsChart y los KPIs.
+ * - Carga categorías/proveedores y los pasa a los formularios.
  */
 
 import { getServerSession } from "next-auth";
@@ -10,26 +13,32 @@ import { authOptions } from "@/lib/authOptions";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/generated/prisma";
 
-// Nuevos componentes
+// Componentes
 import { KpiCard } from "@/components/kpi-card";
 import { LowStockAlert } from "@/components/low-stock-alert";
 import { NewProductForm } from "@/components/new-product-form";
 import { ProductList } from "@/components/product-list";
 import SessionDisplay from "@/components/session-display";
+import { MovementsChart } from "@/components/movements-chart"; // Importamos el gráfico
 
-// Iconos para los KPIs (¡Asegúrate de tener 'lucide-react' instalado!)
+// Iconos
 import { DollarSign, Archive, Warehouse, PackageMinus } from "lucide-react";
+
+// --- Tipo para los datos crudos del SQL del gráfico ---
+type RawMovementData = {
+  date: Date; // MySQL devuelve un objeto Date
+  type: "IN" | "OUT";
+  total: number; // MySQL devuelve un 'BigInt' o 'Decimal', lo tratamos como 'number'
+};
 
 /**
  * Función de Data Fetching (Server-Side)
- * Ahora busca TODO lo que el dashboard necesita.
+ * Busca TODO lo que el dashboard necesita.
  */
 async function fetchDashboardData(userId: string) {
   try {
-    // 1. Estadísticas (KPIs) - Usamos SQL para agrupar y calcular
-    //    Usamos 'as any[]' porque Prisma no sabe el tipo de retorno de
-    //    consultas SQL crudas complejas (con SUM, COUNT, etc.)
-    const statsResult = await prisma.$queryRaw<any[]>(
+    // 1. Estadísticas (KPIs)
+    const statsPromise = prisma.$queryRaw<any[]>(
       Prisma.sql`
         SELECT 
           -- KPI 1: Valor Total (precio * cantidad)
@@ -42,16 +51,10 @@ async function fetchDashboardData(userId: string) {
         WHERE authorId = ${userId}
       `
     );
-    const stats = {
-      // Usamos '|| 0' como fallback por si no hay productos (para evitar 'null')
-      totalValue: statsResult[0].totalValue || 0,
-      totalItems: statsResult[0].totalItems || 0,
-      totalSkus: statsResult[0].totalSkus || 0,
-    };
 
-    // 2. Alertas de Bajo Stock (ej: menos de 10)
+    // 2. Alertas de Bajo Stock
     const lowStockThreshold = 10;
-    const lowStockProducts = await prisma.$queryRaw(
+    const lowStockPromise = prisma.$queryRaw(
       Prisma.sql`
         SELECT id, name, sku, quantity
         FROM Product
@@ -61,20 +64,112 @@ async function fetchDashboardData(userId: string) {
     );
 
     // 3. Lista Completa de Productos (para la tabla principal)
-    //    (Asegúrate de que esta consulta coincida con la de product-list.tsx)
-    const allProducts = await prisma.$queryRaw(
+    const allProductsPromise = prisma.$queryRaw(
       Prisma.sql`
-        SELECT id, name, sku, price, quantity, description, createdAt 
+        SELECT 
+          id, name, sku, price, quantity, description, createdAt,
+          categoryId, supplierId
         FROM Product 
         WHERE authorId = ${userId}
         ORDER BY createdAt DESC
       `
     );
 
+    // 4. Lista de Categorías (para los <Select>)
+    const categoriesPromise = prisma.$queryRaw(
+      Prisma.sql`SELECT id, name FROM Category WHERE authorId = ${userId} ORDER BY name`
+    );
+
+    // 5. Lista de Proveedores (para los <Select>)
+    const suppliersPromise = prisma.$queryRaw(
+      Prisma.sql`SELECT id, name FROM Supplier WHERE authorId = ${userId} ORDER BY name`
+    );
+
+    // 6. Datos para el Gráfico (últimos 7 días)
+    const movementsPromise = prisma.$queryRaw<RawMovementData[]>(
+      Prisma.sql`
+        SELECT 
+          DATE(createdAt) as date, 
+          type, 
+          SUM(quantity) as total
+        FROM InventoryMovement
+        WHERE 
+          authorId = ${userId} AND
+          createdAt >= CURDATE() - INTERVAL 7 DAY
+        GROUP BY 
+          DATE(createdAt), type
+        ORDER BY 
+          date ASC
+      `
+    );
+
+    // ¡Ejecutamos todo en paralelo!
+    const [
+      statsResult,
+      lowStockProducts,
+      allProducts,
+      categories,
+      suppliers,
+      rawMovements, // <-- Dato nuevo
+    ] = await Promise.all([
+      statsPromise,
+      lowStockPromise,
+      allProductsPromise,
+      categoriesPromise,
+      suppliersPromise,
+      movementsPromise, // <-- Consulta nueva
+    ]);
+
+    // Procesamos las estadísticas
+    const stats = {
+      totalValue: statsResult[0].totalValue || 0,
+      totalItems: statsResult[0].totalItems || 0,
+      totalSkus: statsResult[0].totalSkus || 0,
+    };
+
+    // 7. --- Procesamiento (Pivot) para el Gráfico ---
+    //    Convertimos los datos de:
+    //    [{date: '11-18', type: 'IN', total: 10}, {date: '11-18', type: 'OUT', total: 5}]
+    //    A:
+    //    [{date: '18/11', ENTRADA: 10, SALIDA: 5}]
+
+    const chartDataMap = new Map<
+      string,
+      { date: string; ENTRADA: number; SALIDA: number }
+    >();
+
+    // (Helper para formatear la fecha)
+    const formatDate = (dateObj: Date) =>
+      new Date(dateObj).toLocaleDateString("es-ES", {
+        day: "2-digit",
+        month: "2-digit",
+      });
+
+    for (const move of rawMovements) {
+      const dateKey = formatDate(move.date);
+
+      // Si es la primera vez que vemos esta fecha, creamos la entrada
+      if (!chartDataMap.has(dateKey)) {
+        chartDataMap.set(dateKey, { date: dateKey, ENTRADA: 0, SALIDA: 0 });
+      }
+
+      const entry = chartDataMap.get(dateKey)!;
+
+      if (move.type === "IN") {
+        entry.ENTRADA += Number(move.total); // Usamos Number() por si acaso
+      } else {
+        entry.SALIDA += Number(move.total);
+      }
+    }
+
+    // Devolvemos todos los datos que la página necesita
     return {
       stats,
       lowStockProducts: lowStockProducts as any[],
       allProducts: allProducts as any[],
+      categories: categories as any[],
+      suppliers: suppliers as any[],
+      chartData: Array.from(chartDataMap.values()), // Convertimos el Map en Array
     };
   } catch (error) {
     console.error("Error al buscar datos del dashboard:", error);
@@ -83,6 +178,9 @@ async function fetchDashboardData(userId: string) {
       stats: { totalValue: 0, totalItems: 0, totalSkus: 0 },
       lowStockProducts: [],
       allProducts: [],
+      categories: [],
+      suppliers: [],
+      chartData: [], // <-- Nuevo valor por defecto
     };
   }
 }
@@ -91,26 +189,24 @@ async function fetchDashboardData(userId: string) {
 export default async function Home() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    // El middleware ya protege esto, pero es una buena práctica
     return <p>No autorizado.</p>;
   }
 
-  // 1. Llamamos a nuestra ÚNICA función de data fetching
-  const { stats, lowStockProducts, allProducts } = await fetchDashboardData(
-    session.user.id
-  );
+  // 1. Obtenemos TODOS los datos de nuestra función
+  const {
+    stats,
+    lowStockProducts,
+    allProducts,
+    categories,
+    suppliers,
+    chartData, // <-- Dato nuevo para el gráfico
+  } = await fetchDashboardData(session.user.id);
 
   return (
-    // ¡Eliminamos el padding (p-8, p-12, p-24) de aquí
-    // para que la Navbar se pegue a 'main'!
-    // El padding ahora está en el 'main' de layout.tsx
-
-    <div className="flex min-h-screen flex-col items-center">
+    // 'flex flex-col gap-8' es nuestro contenedor principal
+    <div className="flex flex-col gap-8">
       {/* Título */}
-      <div className="w-full text-center my-6">
-        <div className="lg:col-span-1">
-          <SessionDisplay />
-        </div>
+      <div className="w-full text-center">
         <h1 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white">
           Dashboard
         </h1>
@@ -119,17 +215,14 @@ export default async function Home() {
         </p>
       </div>
 
-      {/* --- SECCIÓN NUEVA: KPIs --- */}
-      <div className="w-full grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
+      <div className="w-full grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <KpiCard
           title="Valor Total del Inventario"
-          // Formateamos el número a 2 decimales
           value={`$${Number(stats.totalValue).toFixed(2)}`}
           icon={DollarSign}
         />
         <KpiCard
           title="Items Totales en Stock"
-          // Convertimos el número a string
           value={String(stats.totalItems)}
           icon={Warehouse}
         />
@@ -146,20 +239,29 @@ export default async function Home() {
         />
       </div>
 
-      {/* Contenedor principal (Formularios y Alertas) */}
-      <div className="w-full grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="w-full grid grid-cols-2 lg:grid-cols-4 gap-8">
         {/* Columna Izquierda (más ancha) */}
-        <div className="lg:col-span-2 space-y-8">
+        <div className="lg:col-span-6 space-y-8">
+          <MovementsChart data={chartData} />
+        </div>
+
+        <div className="lg:col-span-6 space-y-8">
           <LowStockAlert products={lowStockProducts} />
-          <NewProductForm />
+        </div>
+        <div className="lg:col-span-12 space-y-8">
+          <NewProductForm categories={categories} suppliers={suppliers} />
         </div>
 
         {/* Columna Derecha (Sesión) */}
       </div>
 
       {/* Lista de Productos (Tabla Principal) */}
-      <div className="w-full mt-8">
-        <ProductList products={allProducts} />
+      <div className="w-full">
+        <ProductList
+          products={allProducts}
+          categories={categories}
+          suppliers={suppliers}
+        />
       </div>
     </div>
   );

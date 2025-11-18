@@ -75,8 +75,6 @@ export default async function KardexPage() {
     <div className="flex flex-col gap-8 m-10">
       <h1 className="text-3xl font-bold">Registro de Movimientos (Kardex)</h1>
 
-      {/* Formulario de Nuevo Movimiento */}
-      {/* Pasamos la lista de productos al formulario */}
       <NewMovementForm products={products} />
 
       {/* Lista de Últimos Movimientos */}

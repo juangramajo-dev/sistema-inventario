@@ -52,9 +52,6 @@ export default async function ManagementPage() {
   const categories = await fetchCategories(session.user.id);
   const suppliers = await fetchSuppliers(session.user.id);
 
-  // (Aquí también buscaríamos los proveedores en el futuro)
-  // const suppliers = await fetchSuppliers(session.user.id);
-
   return (
     <div className="flex flex-col gap-8 m-10">
       {/* Título de la Página */}
@@ -63,9 +60,6 @@ export default async function ManagementPage() {
       {/* Gestor de Categorías */}
       <CategoryManager initialCategories={categories} />
       <SupplierManager initialSuppliers={suppliers} />
-
-      {/* Gestor de Proveedores (próximamente) */}
-      {/* <SupplierManager initialSuppliers={suppliers} /> */}
     </div>
   );
 }
