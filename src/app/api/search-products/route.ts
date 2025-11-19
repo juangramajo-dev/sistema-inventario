@@ -1,9 +1,8 @@
 /**
  * Archivo: src/app/api/search-products/route.ts
  *
- * API GET para buscar y paginar productos.
- * Utiliza los parámetros 'search', 'page' y 'limit' de la URL.
- * ¡Versión que implementa BUSQUEDA y PAGINACION con SQL!
+ * ¡FIX DE BIGINT!
+ * - Convierte totalItems a Number antes de calcular totalPages.
  */
 
 import { NextResponse } from "next/server";
@@ -27,13 +26,10 @@ export async function GET(request: Request) {
     const limit = parseInt(url.searchParams.get("limit") || "10");
     const offset = (page - 1) * limit;
 
-    // 2. Construir la cláusula WHERE (incluyendo la búsqueda y el userId)
-    // El primer WHERE siempre es para filtrar por usuario
+    // 2. Construir la cláusula WHERE
     let whereClause = Prisma.sql`WHERE p.authorId = ${userId}`;
-
-    // Si hay un término de búsqueda, lo añadimos al WHERE
+    
     if (search) {
-      // Concatenamos la cláusula con un AND
       whereClause = Prisma.sql`
         ${whereClause} 
         AND (
@@ -44,15 +40,12 @@ export async function GET(request: Request) {
       `;
     }
 
-    // 3. Consultas paralelas: Total de items y datos de la página
+    // 3. Consultas paralelas
     const [totalItemsResult, productsResult] = await prisma.$transaction([
-      // Consulta 1: Contar el total de items (con la búsqueda aplicada)
-      // Usamos AS total para obtener el nombre del campo que esperamos
-      prisma.$queryRaw(
-        Prisma.sql`SELECT COUNT(p.id) AS total FROM Product p ${whereClause}`
-      ),
-
-      // Consulta 2: Obtener los productos para la página actual
+      // Consulta 1: Contar el total de items
+      prisma.$queryRaw(Prisma.sql`SELECT COUNT(p.id) AS total FROM Product p ${whereClause}`),
+      
+      // Consulta 2: Obtener los productos de la página
       prisma.$queryRaw(
         Prisma.sql`
           SELECT 
@@ -67,19 +60,24 @@ export async function GET(request: Request) {
       ),
     ]);
 
-    // Calcular metadatos de paginación
-    const totalItems = (totalItemsResult as any[])[0].total;
+    // 4. --- ¡FIX DE BigInt! ---
+    // El resultado del COUNT es un BigInt, lo convertimos a Number.
+    const totalItemsRaw = (totalItemsResult as any[])[0].total;
+    const totalItems = Number(totalItemsRaw); // <-- CONVERSIÓN CRÍTICA
+
+    // 5. Calcular metadatos de paginación
     const totalPages = Math.ceil(totalItems / limit);
 
     return NextResponse.json({
       products: productsResult,
       pagination: {
-        totalItems: Number(totalItems), // Aseguramos que sea un Number
+        totalItems: totalItems, 
         itemsPerPage: limit,
         currentPage: page,
         totalPages,
       },
     });
+
   } catch (error) {
     console.error("Error en search-products API:", error);
     return NextResponse.json(

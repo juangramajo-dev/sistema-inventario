@@ -1,10 +1,4 @@
-/**
- * Archivo: schema.prisma
- *
- * ¡VERSIÓN FINAL DE LA FASE 4!
- * Incluye todos los modelos y relaciones:
- * User, Product, Category, Supplier, MovementReason, InventoryMovement.
- */
+
 
 generator client {
   provider = "prisma-client-js"

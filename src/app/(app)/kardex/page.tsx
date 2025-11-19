@@ -1,9 +1,3 @@
-/**
- * Archivo: src/app/(app)/kardex/page.tsx
- *
- * ¡ACTUALIZADO! Ahora incluye Motivos de Movimiento.
- */
-
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
 import { prisma } from "@/lib/prisma";
@@ -26,9 +20,6 @@ type MovementReason = {
   type: "IN" | "OUT";
 };
 
-/**
- * Función de Data Fetching (Server-Side)
- */
 async function fetchPageData(userId: string) {
   try {
     // 1. Buscamos los productos (ID y Nombre para el dropdown)
@@ -40,7 +31,6 @@ async function fetchPageData(userId: string) {
       `
     );
 
-    // 2. Buscamos los Motivos (ID y Nombre para el dropdown)
     const reasonsPromise = prisma.$queryRaw(
       Prisma.sql`
         SELECT id, name, type FROM MovementReason
@@ -49,8 +39,6 @@ async function fetchPageData(userId: string) {
       `
     );
 
-    // 3. Buscamos los 50 movimientos más recientes (Kardex)
-    //    ¡Usamos un LEFT JOIN para obtener el nombre del motivo (si existe)!
     const movementsPromise = prisma.$queryRaw(
       Prisma.sql`
         SELECT 
@@ -66,7 +54,6 @@ async function fetchPageData(userId: string) {
       `
     );
 
-    // 4. Ejecutamos todas las consultas en paralelo
     const [products, reasons, movements] = await Promise.all([
       productsPromise,
       reasonsPromise,
@@ -75,7 +62,7 @@ async function fetchPageData(userId: string) {
 
     return {
       products: products as any[],
-      reasons: reasons as MovementReason[], // <-- Lo devolvemos
+      reasons: reasons as MovementReason[],
       movements: movements as any[],
     };
   } catch (error) {
