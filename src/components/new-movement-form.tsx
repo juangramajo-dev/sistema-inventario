@@ -1,12 +1,12 @@
 /**
  * Archivo: src/components/new-movement-form.tsx
  *
- * ¡ACTUALIZADO! Incluye la selección de Motivos de Movimiento.
+ * ¡ACTUALIZADO! Lógica de Trazabilidad: Muestra Cliente/Proveedor basado en Motivo.
  */
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -22,41 +22,125 @@ import {
 } from "@/components/ui/select";
 
 // Tipos
-type Product = { id: string; name: string };
+type SelectEntity = { id: string; name: string };
 type MovementType = "IN" | "OUT";
-type MovementReason = { id: string; name: string; type: MovementType };
+type MovementReason = {
+  id: string;
+  name: string;
+  type: MovementType;
+  name: string;
+};
 
 // Props
 interface NewMovementFormProps {
-  products: Product[];
-  reasons: MovementReason[]; // <-- MOTIVOS
+  products: SelectEntity[];
+  reasons: MovementReason[];
+  clients: SelectEntity[]; // <-- NUEVA PROP
+  suppliers: SelectEntity[]; // <-- NUEVA PROP
 }
 
-export function NewMovementForm({ products, reasons }: NewMovementFormProps) {
+const initialState = {
+  productId: undefined as string | undefined,
+  type: undefined as MovementType | undefined,
+  reasonId: "NONE" as string | undefined,
+  quantity: "",
+  notes: "",
+  clientId: "NONE" as string | undefined, // <-- NUEVO
+  supplierId: "NONE" as string | undefined, // <-- NUEVO
+};
+
+export function NewMovementForm({
+  products,
+  reasons,
+  clients,
+  suppliers,
+}: NewMovementFormProps) {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
 
-  // Estados para el formulario
-  const [productId, setProductId] = useState<string | undefined>(undefined);
-  const [type, setType] = useState<MovementType | undefined>(undefined);
-  // Usamos "NONE" para el valor inicial/nulo del Select
-  const [reasonId, setReasonId] = useState<string | undefined>("NONE");
-  const [quantity, setQuantity] = useState("");
-  const [notes, setNotes] = useState("");
+  // Estados
+  const [formData, setFormData] = useState(initialState);
 
-  // Filtramos los motivos según el tipo de movimiento seleccionado
-  const filteredReasons = reasons.filter((r) => r.type === type);
+  // Lógica de filtrado de motivos y trazabilidad
+  const filteredReasons = reasons.filter((r) => r.type === formData.type);
+  const selectedReason = reasons.find((r) => r.id === formData.reasonId);
+
+  // --- LÓGICA CONDICIONAL ---
+  // Utilizamos includes() para ser flexibles si el usuario nombra el motivo "Venta Minorista"
+  const isSale =
+    formData.type === "OUT" &&
+    selectedReason?.name.toLowerCase().includes("venta");
+  const isPurchase =
+    formData.type === "IN" &&
+    selectedReason?.name.toLowerCase().includes("compra");
+
+  // Determinar qué campo de trazabilidad se debe mostrar y su requisito
+  const showClientSelect = isSale;
+  const showSupplierSelect = isPurchase;
+  const isTrazabilityRequired = isSale || isPurchase;
+
+  // Limpiar Cliente/Proveedor cuando el motivo o tipo cambia
+  useEffect(() => {
+    // Si la trazabilidad no es requerida, limpiamos
+    if (!showClientSelect) {
+      setFormData((prev) => ({ ...prev, clientId: "NONE" }));
+    }
+    if (!showSupplierSelect) {
+      setFormData((prev) => ({ ...prev, supplierId: "NONE" }));
+    }
+    // Se dispara cada vez que cambia el motivo o el tipo.
+  }, [formData.type, formData.reasonId, showClientSelect, showSupplierSelect]);
+
+  // Handlers
+  const handleTypeChange = (newType: string) => {
+    // Resetear el motivo y la trazabilidad al cambiar el tipo
+    setFormData((prev) => ({
+      ...prev,
+      type: newType as MovementType,
+      reasonId: "NONE",
+      clientId: "NONE",
+      supplierId: "NONE",
+    }));
+  };
+  const handleReasonChange = (newReasonId: string) => {
+    setFormData((prev) => ({ ...prev, reasonId: newReasonId }));
+  };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setLoading(true);
 
-    // Validación de cliente
-    if (!productId || !type || !quantity) {
+    const data = {
+      ...formData,
+      quantity: parseInt(formData.quantity, 10),
+    };
+
+    // Validación de requerimiento de Trazabilidad
+    if (isSale && data.clientId === "NONE") {
       toast({
-        title: "Error de Formulario",
-        description: "Producto, Tipo y Cantidad son requeridos.",
+        title: "Error",
+        description: "Debes seleccionar un cliente para la venta.",
+        variant: "destructive",
+      });
+      setLoading(false);
+      return;
+    }
+    if (isPurchase && data.supplierId === "NONE") {
+      toast({
+        title: "Error",
+        description: "Debes seleccionar un proveedor para la compra.",
+        variant: "destructive",
+      });
+      setLoading(false);
+      return;
+    }
+
+    // Validación básica
+    if (!data.productId || !data.type || data.quantity <= 0) {
+      toast({
+        title: "Error",
+        description: "Faltan datos requeridos.",
         variant: "destructive",
       });
       setLoading(false);
@@ -68,12 +152,14 @@ export function NewMovementForm({ products, reasons }: NewMovementFormProps) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          productId,
-          type,
-          quantity: parseInt(quantity, 10),
-          // Enviamos "NONE" si no se selecciona nada (el backend lo convierte a null)
-          reasonId: reasonId,
-          notes,
+          productId: data.productId,
+          type: data.type,
+          quantity: data.quantity,
+          reasonId: data.reasonId,
+          notes: data.notes,
+          // Solo incluimos el ID si no es "NONE"
+          clientId: data.clientId === "NONE" ? null : data.clientId,
+          supplierId: data.supplierId === "NONE" ? null : data.supplierId,
         }),
       });
 
@@ -86,17 +172,8 @@ export function NewMovementForm({ products, reasons }: NewMovementFormProps) {
           variant: "destructive",
         });
       } else {
-        toast({
-          title: "¡Éxito!",
-          description: "Movimiento registrado.",
-        });
-        // Limpiar el formulario
-        setProductId(undefined);
-        setType(undefined);
-        setReasonId("NONE"); // Resetear a NONE
-        setQuantity("");
-        setNotes("");
-        // Refrescar la página (actualiza el Kardex y el Dashboard)
+        toast({ title: "¡Éxito!", description: "Movimiento registrado." });
+        setFormData(initialState); // Limpiar el formulario
         router.refresh();
       }
     } catch (err) {
@@ -110,47 +187,43 @@ export function NewMovementForm({ products, reasons }: NewMovementFormProps) {
     }
   };
 
-  // Cuando el tipo de movimiento cambia, reiniciamos el motivo.
-  const handleTypeChange = (newType: string) => {
-    setType(newType as MovementType);
-    setReasonId("NONE"); // Resetear el motivo a "NONE"
-  };
-
   return (
     <Card className="w-full">
       <CardHeader>
         <CardTitle>Registrar Movimiento de Inventario</CardTitle>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="grid grid-cols-3 gap-6">
-          {/* Fila 1: Producto, Tipo, Cantidad */}
-          <div className="col-span-3 sm:col-span-1">
+        <form
+          onSubmit={handleSubmit}
+          className="grid grid-cols-2 lg:grid-cols-4 gap-6"
+        >
+          {/* Fila 1: Producto y Tipo */}
+          <div className="col-span-2 lg:col-span-1">
             <Label>Producto</Label>
-            <Select onValueChange={setProductId} value={productId}>
+            <Select
+              onValueChange={(v) =>
+                setFormData((prev) => ({ ...prev, productId: v }))
+              }
+              value={formData.productId}
+            >
               <SelectTrigger>
-                <SelectValue placeholder="Selecciona un producto..." />
+                <SelectValue placeholder="Selecciona producto..." />
               </SelectTrigger>
               <SelectContent>
-                {products.length === 0 ? (
-                  <SelectItem value="no-products" disabled>
-                    No hay productos creados.
+                {products.map((product) => (
+                  <SelectItem key={product.id} value={product.id}>
+                    {product.name}
                   </SelectItem>
-                ) : (
-                  products.map((product) => (
-                    <SelectItem key={product.id} value={product.id}>
-                      {product.name}
-                    </SelectItem>
-                  ))
-                )}
+                ))}
               </SelectContent>
             </Select>
           </div>
 
-          <div className="col-span-3 sm:col-span-1">
-            <Label>Tipo de Movimiento</Label>
-            <Select onValueChange={handleTypeChange} value={type}>
+          <div className="col-span-2 lg:col-span-1">
+            <Label>Tipo</Label>
+            <Select onValueChange={handleTypeChange} value={formData.type}>
               <SelectTrigger>
-                <SelectValue placeholder="Selecciona un tipo..." />
+                <SelectValue placeholder="Selecciona tipo..." />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="IN">Entrada (+)</SelectItem>
@@ -159,7 +232,7 @@ export function NewMovementForm({ products, reasons }: NewMovementFormProps) {
             </Select>
           </div>
 
-          <div className="col-span-3 sm:col-span-1">
+          <div className="col-span-2 lg:col-span-1">
             <Label htmlFor="quantity">Cantidad</Label>
             <Input
               id="quantity"
@@ -167,27 +240,27 @@ export function NewMovementForm({ products, reasons }: NewMovementFormProps) {
               step="1"
               min="1"
               placeholder="Ej: 10"
-              value={quantity}
-              onChange={(e) => setQuantity(e.target.value)}
+              value={formData.quantity}
+              onChange={(e) =>
+                setFormData((prev) => ({ ...prev, quantity: e.target.value }))
+              }
               required
             />
           </div>
 
-          {/* Fila 2: Motivo y Notas */}
-          <div className="col-span-3 sm:col-span-1">
+          <div className="col-span-2 lg:col-span-1">
             <Label>Motivo</Label>
             <Select
-              onValueChange={setReasonId}
-              value={reasonId}
-              // Deshabilitado si no se selecciona el tipo o no hay motivos filtrados
-              disabled={!type || filteredReasons.length === 0}
+              onValueChange={handleReasonChange}
+              value={formData.reasonId}
+              disabled={!formData.type || filteredReasons.length === 0}
             >
               <SelectTrigger>
                 <SelectValue
                   placeholder={
-                    type
-                      ? `Selecciona un motivo de ${
-                          type === "IN" ? "Entrada" : "Salida"
+                    formData.type
+                      ? `Motivo de ${
+                          formData.type === "IN" ? "Entrada" : "Salida"
                         }`
                       : "Selecciona el tipo primero..."
                   }
@@ -204,17 +277,89 @@ export function NewMovementForm({ products, reasons }: NewMovementFormProps) {
             </Select>
           </div>
 
-          <div className="col-span-3 sm:col-span-2">
+          {/* --- CAMPO CONDICIONAL DE TRAZABILIDAD (CLIENTE) --- */}
+          {showClientSelect && (
+            <div className="col-span-2 lg:col-span-1">
+              <Label className="text-blue-600 font-semibold">
+                Cliente (Venta)
+              </Label>
+              <Select
+                onValueChange={(v) =>
+                  setFormData((prev) => ({ ...prev, clientId: v }))
+                }
+                value={formData.clientId}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona un cliente..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {/* Si es requerido por VENTA, forzamos la selección */}
+                  {clients.length === 0 && (
+                    <SelectItem value="no-clients" disabled>
+                      No hay clientes creados.
+                    </SelectItem>
+                  )}
+                  {clients.map((client) => (
+                    <SelectItem key={client.id} value={client.id}>
+                      {client.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* --- CAMPO CONDICIONAL DE TRAZABILIDAD (PROVEEDOR) --- */}
+          {showSupplierSelect && (
+            <div className="col-span-2 lg:col-span-1">
+              <Label className="text-purple-600 font-semibold">
+                Proveedor (Compra)
+              </Label>
+              <Select
+                onValueChange={(v) =>
+                  setFormData((prev) => ({ ...prev, supplierId: v }))
+                }
+                value={formData.supplierId}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona un proveedor..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {/* Si es requerido por COMPRA, forzamos la selección */}
+                  {suppliers.length === 0 && (
+                    <SelectItem value="no-suppliers" disabled>
+                      No hay proveedores creados.
+                    </SelectItem>
+                  )}
+                  {suppliers.map((supplier) => (
+                    <SelectItem key={supplier.id} value={supplier.id}>
+                      {supplier.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* El campo Notas se ajusta para ocupar el espacio restante */}
+          <div
+            className={
+              (isTrazabilityRequired ? "lg:col-span-2" : "lg:col-span-4") +
+              " col-span-4"
+            }
+          >
             <Label htmlFor="notes">Notas (Opcional)</Label>
             <Input
               id="notes"
-              placeholder="Ej: Venta Factura #123, Ajuste por rotura..."
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Ej: Número de factura, motivo de merma, etc."
+              value={formData.notes}
+              onChange={(e) =>
+                setFormData((prev) => ({ ...prev, notes: e.target.value }))
+              }
             />
           </div>
 
-          <div className="col-span-3 text-right">
+          <div className="col-span-4 text-right">
             <Button
               type="submit"
               disabled={loading}

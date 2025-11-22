@@ -32,6 +32,7 @@ model User {
   suppliers        Supplier[]
   movements        InventoryMovement[]
   movementReasons  MovementReason[] // <-- RELACIÓN NUEVA
+  clients          Client[]
 }
 
 // --- MODELO PRODUCT ---
@@ -82,28 +83,32 @@ model Supplier {
 
   authorId String
   author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  products Product[]
+  products          Product[]
+  inventoryMovements InventoryMovement[]
 
   @@index([authorId])
 }
 
 
-// --- ¡MODELO NUEVO! ---
-model MovementReason {
-  id        String       @id @default(cuid())
-  name      String       // Ej: "Venta", "Compra", "Merma"
-  type      MovementType // Indica si es para entradas o salidas
-  authorId  String
-  author    User         @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+// --- MODELO CLIENTE ---
+model Client {
+  id          String  @id @default(cuid())
+  name        String
+  contactName String?
+  phone       String?
+  email       String?
   
-  movements InventoryMovement[] 
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  movements InventoryMovement[] // Clientes asociados a movimientos de VENTA
 
   @@index([authorId])
-  @@unique([authorId, name])
+  @@unique([authorId, name]) // Nombre de cliente único por usuario
 }
 
-
-// --- MODELO InventoryMovement (ACTUALIZADO) ---
+// --- MODELO InventoryMovement  ---
 model InventoryMovement {
   id        String       @id @default(cuid())
   type      MovementType
@@ -117,11 +122,34 @@ model InventoryMovement {
   authorId  String
   author    User    @relation(fields: [authorId], references: [id], onDelete: Cascade)
   
-  reasonId  String? // La clave foránea al motivo (Opcional)
+  reasonId  String? 
   reason    MovementReason? @relation(fields: [reasonId], references: [id], onDelete: SetNull)
+  
+  // --- ¡NUEVAS CLAVES PARA TRAZABILIDAD! ---
+  // Un movimiento puede tener Cliente O Proveedor, no ambos.
+  clientId   String?
+  client     Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
+
+  supplierId String? // Reutilizamos el Supplier para la trazabilidad
+  supplier   Supplier? @relation(fields: [supplierId], references: [id], onDelete: SetNull) 
 
   // Índices
   @@index([productId])
   @@index([authorId])
   @@index([reasonId]) 
+  @@index([clientId]) // <-- NUEVO ÍNDICE
+  @@index([supplierId]) // <-- NUEVO ÍNDICE
 }
+model MovementReason {
+  id        String       @id @default(cuid())
+  name      String       // Ej: "Venta", "Compra", "Merma"
+  type      MovementType // Indica si es para entradas o salidas
+  authorId  String
+  author    User         @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  
+  movements InventoryMovement[] 
+
+  @@index([authorId])
+  @@unique([authorId, name])
+}
+

@@ -1,3 +1,10 @@
+/**
+ * Archivo: src/app/(app)/kardex/page.tsx
+ *
+ * ¡ACTUALIZADO! Incluye Clientes y Proveedores para trazabilidad.
+ * Muestra el nombre de Cliente/Proveedor en la tabla.
+ */
+
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
 import { prisma } from "@/lib/prisma";
@@ -13,62 +20,103 @@ import {
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-// Tipo para el nuevo modelo
-type MovementReason = {
-  id: string;
-  name: string;
-  type: "IN" | "OUT";
-};
+// Tipos...
+type MovementType = "IN" | "OUT";
+type MovementReason = { id: string; name: string; type: MovementType };
+type SelectEntity = { id: string; name: string }; // Tipo simplificado (Producto, Cliente, Proveedor)
 
-async function fetchPageData(userId: string) {
+// --- FUNCIÓN fetchProducts (Sin cambios) ---
+async function fetchProducts(userId: string) {
   try {
-    // 1. Buscamos los productos (ID y Nombre para el dropdown)
-    const productsPromise = prisma.$queryRaw(
-      Prisma.sql`
-        SELECT id, name FROM Product
-        WHERE authorId = ${userId}
-        ORDER BY name ASC
-      `
+    const products = await prisma.$queryRaw(
+      Prisma.sql`SELECT id, name FROM Product WHERE authorId = ${userId} ORDER BY name`
     );
+    return products as SelectEntity[];
+  } catch (error) {
+    console.error("Error fetching products:", error);
+    return [];
+  }
+}
 
-    const reasonsPromise = prisma.$queryRaw(
+// --- FUNCIÓN fetchMovementReasons (Sin cambios) ---
+async function fetchMovementReasons(userId: string) {
+  try {
+    const reasons = await prisma.$queryRaw(
       Prisma.sql`
         SELECT id, name, type FROM MovementReason
         WHERE authorId = ${userId}
         ORDER BY name ASC
       `
     );
+    return reasons as MovementReason[];
+  } catch (error) {
+    console.error("Error fetching movement reasons:", error);
+    return [];
+  }
+}
 
-    const movementsPromise = prisma.$queryRaw(
+// --- NUEVA FUNCIÓN fetchClients ---
+async function fetchClients(userId: string) {
+  try {
+    const clients = await prisma.$queryRaw(
+      Prisma.sql`SELECT id, name FROM Client WHERE authorId = ${userId} ORDER BY name`
+    );
+    return clients as SelectEntity[];
+  } catch (error) {
+    console.error("Error fetching clients:", error);
+    return [];
+  }
+}
+// --- NUEVA FUNCIÓN fetchSuppliers ---
+async function fetchSuppliersKardex(userId: string) {
+  try {
+    const suppliers = await prisma.$queryRaw(
+      Prisma.sql`SELECT id, name FROM Supplier WHERE authorId = ${userId} ORDER BY name`
+    );
+    return suppliers as SelectEntity[];
+  } catch (error) {
+    console.error("Error fetching suppliers (kardex):", error);
+    return [];
+  }
+}
+
+/**
+ * Función de Data Fetching principal
+ */
+async function fetchPageData(userId: string) {
+  // 1. Buscamos TODOS los datos en paralelo
+  const [products, reasons, clients, suppliers, movements] = await Promise.all([
+    fetchProducts(userId),
+    fetchMovementReasons(userId),
+    fetchClients(userId), // <-- FETCH CLIENTES
+    fetchSuppliersKardex(userId), // <-- FETCH PROVEEDORES
+    prisma.$queryRaw(
       Prisma.sql`
         SELECT 
           m.id, m.type, m.quantity, m.notes, m.createdAt,
           p.name as productName,
-          r.name as reasonName -- <-- NOMBRE DEL MOTIVO
+          r.name as reasonName, 
+          c.name as clientName,   -- <-- NOMBRE DEL CLIENTE (JOIN)
+          s.name as supplierName  -- <-- NOMBRE DEL PROVEEDOR (JOIN)
         FROM InventoryMovement m
         JOIN Product p ON m.productId = p.id
-        LEFT JOIN MovementReason r ON m.reasonId = r.id -- <-- JOIN con el motivo
+        LEFT JOIN MovementReason r ON m.reasonId = r.id
+        LEFT JOIN Client c ON m.clientId = c.id      
+        LEFT JOIN Supplier s ON m.supplierId = s.id  
         WHERE m.authorId = ${userId}
         ORDER BY m.createdAt DESC
         LIMIT 50
       `
-    );
+    ),
+  ]);
 
-    const [products, reasons, movements] = await Promise.all([
-      productsPromise,
-      reasonsPromise,
-      movementsPromise,
-    ]);
-
-    return {
-      products: products as any[],
-      reasons: reasons as MovementReason[],
-      movements: movements as any[],
-    };
-  } catch (error) {
-    console.error("Error fetching kardex data:", error);
-    return { products: [], reasons: [], movements: [] };
-  }
+  return {
+    products: products as any[],
+    reasons: reasons as MovementReason[],
+    clients: clients as SelectEntity[], // <-- Devolvemos clientes
+    suppliers: suppliers as SelectEntity[], // <-- Devolvemos proveedores
+    movements: movements as any[],
+  };
 }
 
 // --- El Componente de Página ---
@@ -78,16 +126,20 @@ export default async function KardexPage() {
     return <p>No autorizado.</p>;
   }
 
-  // 1. Buscamos los datos
-  const { products, reasons, movements } = await fetchPageData(session.user.id);
+  const { products, reasons, clients, suppliers, movements } =
+    await fetchPageData(session.user.id);
 
   return (
     <div className="flex flex-col gap-8">
       <h1 className="text-3xl font-bold">Registro de Movimientos (Kardex)</h1>
 
       {/* Formulario de Nuevo Movimiento */}
-      {/* Pasamos la lista de motivos al formulario */}
-      <NewMovementForm products={products} reasons={reasons} />
+      <NewMovementForm
+        products={products}
+        reasons={reasons}
+        clients={clients} // <-- PASAMOS CLIENTES
+        suppliers={suppliers} // <-- PASAMOS PROVEEDORES
+      />
 
       {/* Lista de Últimos Movimientos */}
       <Card className="w-full">
@@ -103,7 +155,8 @@ export default async function KardexPage() {
                   <TableHead>Producto</TableHead>
                   <TableHead>Tipo</TableHead>
                   <TableHead>Cantidad</TableHead>
-                  <TableHead>Motivo</TableHead> {/* <-- NUEVO */}
+                  <TableHead>Motivo</TableHead>
+                  <TableHead>Trazabilidad</TableHead> {/* <-- CAMPO NUEVO */}
                   <TableHead>Notas</TableHead>
                 </TableRow>
               </TableHeader>
@@ -111,7 +164,7 @@ export default async function KardexPage() {
                 {movements.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={6}
+                      colSpan={7}
                       className="text-center text-gray-500"
                     >
                       No hay movimientos registrados.
@@ -141,8 +194,23 @@ export default async function KardexPage() {
                         {move.type === "IN" ? "+" : "-"}
                         {move.quantity}
                       </TableCell>
-                      <TableCell>{move.reasonName || "Sin Motivo"}</TableCell>{" "}
-                      {/* <-- NUEVO CAMPO */}
+                      <TableCell>{move.reasonName || "Sin Motivo"}</TableCell>
+                      <TableCell>
+                        {/* --- CAMPO DE TRAZABILIDAD (Visualización) --- */}
+                        {move.clientName && (
+                          <span className="font-semibold text-blue-600">
+                            Cliente: {move.clientName}
+                          </span>
+                        )}
+                        {move.supplierName && (
+                          <span className="font-semibold text-purple-600">
+                            Proveedor: {move.supplierName}
+                          </span>
+                        )}
+                        {!move.clientName && !move.supplierName && (
+                          <span>N/A</span>
+                        )}
+                      </TableCell>
                       <TableCell>{move.notes || "N/A"}</TableCell>
                     </TableRow>
                   ))

@@ -1,7 +1,8 @@
 /**
  * Archivo: src/app/(app)/management/page.tsx
  *
- * ¡ACTUALIZADO! Ahora incluye la gestión de Motivos de Movimiento.
+ * ¡ACTUALIZADO! Incluye la gestión de Clientes.
+ * Reorganiza el orden de los gestores.
  */
 
 import { getServerSession } from "next-auth";
@@ -10,16 +11,13 @@ import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/generated/prisma";
 import { CategoryManager } from "@/components/category-manager";
 import { SupplierManager } from "@/components/supplier-manager";
-import { MovementReasonManager } from "@/components/movement-reason-manager"; // <-- NUEVO
+import { MovementReasonManager } from "@/components/movement-reason-manager";
+import { ClientManager } from "@/components/client-manager"; // <-- 1. NUEVO IMPORT
 
-// Tipo para el nuevo modelo
-type MovementReason = {
-  id: string;
-  name: string;
-  type: "IN" | "OUT";
-};
+// Tipos... (MovementReason sigue igual)
+type MovementReason = { id: string; name: string; type: "IN" | "OUT" };
 
-// (Función fetchCategories sigue igual)
+// (fetchCategories y fetchSuppliers siguen igual)
 async function fetchCategories(userId: string) {
   try {
     const categories = await prisma.$queryRaw(
@@ -35,8 +33,6 @@ async function fetchCategories(userId: string) {
     return [];
   }
 }
-
-// (Función fetchSuppliers sigue igual)
 async function fetchSuppliers(userId: string) {
   try {
     const suppliers = await prisma.$queryRaw(
@@ -53,8 +49,6 @@ async function fetchSuppliers(userId: string) {
     return [];
   }
 }
-
-// --- NUEVA FUNCIÓN fetchMovementReasons ---
 async function fetchMovementReasons(userId: string) {
   try {
     const reasons = await prisma.$queryRaw(
@@ -71,6 +65,24 @@ async function fetchMovementReasons(userId: string) {
   }
 }
 
+// --- 2. NUEVA FUNCIÓN fetchClients ---
+async function fetchClients(userId: string) {
+  try {
+    const clients = await prisma.$queryRaw(
+      Prisma.sql`
+        SELECT id, name, contactName, phone, email 
+        FROM Client
+        WHERE authorId = ${userId}
+        ORDER BY name ASC
+      `
+    );
+    return clients as any[];
+  } catch (error) {
+    console.error("Error fetching clients:", error);
+    return [];
+  }
+}
+
 // --- El Componente de Página ---
 export default async function ManagementPage() {
   const session = await getServerSession(authOptions);
@@ -80,23 +92,26 @@ export default async function ManagementPage() {
   }
   const userId = session.user.id;
 
-  // 1. Llamamos a TODAS las funciones de fetching
-  const [categories, suppliers, reasons] = await Promise.all([
+  // 3. Llamamos a TODAS las funciones de fetching
+  const [categories, suppliers, reasons, clients] = await Promise.all([
     fetchCategories(userId),
     fetchSuppliers(userId),
-    fetchMovementReasons(userId), // <-- NUEVO FETCH
+    fetchMovementReasons(userId),
+    fetchClients(userId), // <-- NUEVO FETCH
   ]);
 
   return (
     <div className="flex flex-col gap-8">
       <h1 className="text-3xl font-bold">Panel de Gestión</h1>
-      {/* Gestor de Categorías */}
-      <CategoryManager initialCategories={categories} />
+      {/* Gestor de Clientes (NUEVO) */}
+      <ClientManager initialClients={clients} />{" "}
+      {/* <-- RENDERIZAMOS PRIMERO */}
       {/* Gestor de Proveedores */}
       <SupplierManager initialSuppliers={suppliers} />
+      {/* Gestor de Categorías */}
+      <CategoryManager initialCategories={categories} />
       {/* Gestor de Motivos de Movimiento */}
-      <MovementReasonManager initialReasons={reasons} />{" "}
-      {/* <-- NUEVO GESTOR */}
+      <MovementReasonManager initialReasons={reasons} />
     </div>
   );
 }
